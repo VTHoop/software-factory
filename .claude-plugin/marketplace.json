@@ -1,0 +1,16 @@
+{
+  "name": "software-factory",
+  "owner": {
+    "name": "VTHoop"
+  },
+  "metadata": {
+    "description": "Skills that take a refined Linear ticket to a reviewed, addressed pull request."
+  },
+  "plugins": [
+    {
+      "name": "software-factory",
+      "source": "./plugins/software-factory",
+      "description": "start-ticket, pr-review, address-review and six review agents, each runnable by an owner or unattended."
+    }
+  ]
+}
