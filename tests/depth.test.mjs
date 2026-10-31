@@ -12,7 +12,7 @@ describe("every reviewer reads what it reviews", () => {
 
   it("reads every changed file in full, and a diff or grep doesn't count", () => {
     assert.match(rules(), /read every file in the changed-file list in full/i);
-    assert.match(rules(), /`git show <head>:<path>`/);
+    assert.match(rules(), /`git show origin\/<head>:<path>`/);
     assert.match(rules(), /`--stat`.*keyword grep.*do(es)? not count/is);
   });
 

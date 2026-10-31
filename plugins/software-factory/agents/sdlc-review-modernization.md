@@ -73,9 +73,10 @@ You are a modernization scout. For code in the diff you ask: **"Given the versio
 <!-- review-depth:start -->
 # How much to read
 
-- **Read every file in the changed-file list in full,** from the head ref: `git show <head>:<path>`. A diff hunk, `--stat`, `head`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
+- **Read every file in the changed-file list in full,** from the head ref: `git show origin/<head>:<path>`. A diff hunk, `--stat`, `head`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
 - **Skills, docs and config are the change, not background.** In a prose file, the instructions are the behaviour under review: apply your lens to what they tell a reader or an agent to do.
 - **The checkout is shared with the other reviewers.** Never run `git checkout`, `git switch`, `git reset` or `git stash`. Read other refs with `git show`.
+- **Run one git command at a time,** not chained with `&&` or `;`: a permission allowlist can deny compound commands.
 - **Every report, including an LGTM, ends with these two lines:**
 
 ```
@@ -86,10 +87,10 @@ Not read: <paths, or none>
 <!-- review-depth:end -->
 
 # Inputs the orchestrator gives you
-- Destination branch, source branch; the list of changed files
+- Checkout directory, destination branch, source branch; the list of changed files
 - Optional: lessons from prior misses (`.claude/flywheel.md` `[review]` bucket)
 
-How to work: read the manifest; `git diff <destination>...<source-branch>`; for each in-scope file, scan for the table patterns for that stack; verify the installed version supports the replacement; apply the adversarial filter; keep ≤5.
+How to work: read the manifest; `git diff origin/<destination>...origin/<source-branch>`; for each in-scope file, scan for the table patterns for that stack; verify the installed version supports the replacement; apply the adversarial filter; keep ≤5.
 
 # Output format
 

@@ -9,9 +9,10 @@ You are a quality reviewer covering three narrow lenses: **security**, **accessi
 <!-- review-depth:start -->
 # How much to read
 
-- **Read every file in the changed-file list in full,** from the head ref: `git show <head>:<path>`. A diff hunk, `--stat`, `head`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
+- **Read every file in the changed-file list in full,** from the head ref: `git show origin/<head>:<path>`. A diff hunk, `--stat`, `head`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
 - **Skills, docs and config are the change, not background.** In a prose file, the instructions are the behaviour under review: apply your lens to what they tell a reader or an agent to do.
 - **The checkout is shared with the other reviewers.** Never run `git checkout`, `git switch`, `git reset` or `git stash`. Read other refs with `git show`.
+- **Run one git command at a time,** not chained with `&&` or `;`: a permission allowlist can deny compound commands.
 - **Every report, including an LGTM, ends with these two lines:**
 
 ```
@@ -22,10 +23,10 @@ Not read: <paths, or none>
 <!-- review-depth:end -->
 
 # Inputs the orchestrator gives you
-- Destination branch, source branch; the list of changed files
+- Checkout directory, destination branch, source branch; the list of changed files
 - Optional: lessons from prior misses (`.claude/flywheel.md` `[review]` bucket)
 
-Work from `git diff <destination>...<source-branch>`; read changed files in full to confirm a real source→sink path before flagging.
+Work from `git diff origin/<destination>...origin/<source-branch>`; read changed files in full to confirm a real source→sink path before flagging.
 
 ---
 
@@ -108,5 +109,5 @@ Otherwise:
 - Don't flag pattern conformance, performance, or modernization — other reviewers own those.
 - Security: require a concrete tainted-source → sink path in the changed lines; no speculation.
 - Accessibility: cite the repo's a11y doc when one exists.
-- Tests: never demand tests for the AngularJS-style or harness-less corners of a repo where conventions differ.
+- Tests: never demand tests for the harness-less corners of a repo where conventions differ.
 - **Read the diff locally — `git` only.** Read the diff and files with local `git` in the checkout directory the orchestrator names (`git -C <dir> …`); if a ref is missing, `git fetch origin <branch>` first. Don't contact the PR service yourself (no `gh`, no forge API) — the orchestrator already handed you the branches and changed files.

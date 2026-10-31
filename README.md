@@ -5,7 +5,7 @@ A Claude Code plugin that takes a refined Linear ticket to a reviewed, addressed
 | Skill | What it does |
 | --- | --- |
 | `/software-factory:start-ticket <key>` | Reads the ticket, branches, and agrees an AC → test plan. Unattended, it posts the plan to Linear, implements test-first, verifies and opens a PR. |
-| `/software-factory:pr-review [pr]` | Runs six review agents, validates their findings against the diff, and posts one comment. |
+| `/software-factory:pr-review [pr]` | Runs up to six review agents (all six in an unattended run), validates their findings against the diff, and posts one comment. |
 | `/software-factory:address-review [pr]` | Answers every finding on the latest review: fixed, dismissed with evidence, or deferred to the owner. |
 
 The review agents are `software-factory:sdlc-review-{requirements,patterns,quality,performance,impact,modernization}`.
@@ -45,6 +45,8 @@ The skills hold no project details. They read them from the project's `AGENTS.md
 
 - **`## Verification`:** the commands to run, and which run for which paths. Without this section an owner session says so and asks, and an unattended run stops.
 - **Project rules,** such as who may apply migrations.
+
+Optionally, `[review]` lines in `.claude/flywheel.md` are passed to the review agents as lessons from past misses.
 
 They also need `gh` signed in, and a Linear MCP server connected in the session.
 

@@ -143,7 +143,7 @@ With `--unattended`, the workflow above runs with these changes. Where they diff
 - the latest review was already answered by a trusted `## Response to /pr-review`;
 - Linear is unreachable when you read the issue;
 - `AGENTS.md` has no `## Verification` section;
-- a verification command still fails after the fixes (name it, and do not push).
+- a verification command still fails after at most three rounds of fixes on it (name it, and do not push).
 
 **What stays the same.** Deferred findings and dismissals are still listed for the owner, in the reply and in the final message, before the result line. The agent still does not merge, approve, resolve threads or create follow-up issues. The rule against weakening tests or gates, the one-disposition-per-finding rule, the trusted-author rule and the `## Response to /pr-review` heading all apply unchanged.
 

@@ -1,12 +1,12 @@
 ---
 name: start-ticket
-description: Begin implementing a Linear issue from a clean, current base. Fetches origin, branches off origin/main with the issue's Linear branch name, reads the issue and every comment, reads its Linear project's documents (decision records, specs), reads the docs it touches, finds the tests that already cover the area, and stops for the owner's go-ahead on an AC → test plan before writing any code. With --unattended it posts the plan to Linear instead, implements test-first, verifies and opens a PR. Use at the start of every implementation session, e.g. /software-factory:start-ticket PROJ-123.
+description: Begin implementing a Linear issue from a clean, current base. Fetches origin, branches off the default branch with the issue's Linear branch name, reads the issue and every comment, reads its Linear project's documents (decision records, specs), reads the docs it touches, finds the tests that already cover the area, and stops for the owner's go-ahead on an AC → test plan before writing any code. With --unattended it posts the plan to Linear instead, implements test-first, verifies and opens a PR. Use at the start of every implementation session, e.g. /software-factory:start-ticket PROJ-123.
 argument-hint: <issue key or Linear URL> [--unattended]
 ---
 
 # Purpose
 
-Every implementation session starts with the same preamble: sync main, check the contract, read the issue, branch. This skill is that preamble as a procedure. In an owner session it ends at a checkpoint, not at code: the owner approves which test proves which AC bullet before the first red test is written. An unattended run posts that plan to Linear instead and carries on to a PR.
+Every implementation session starts with the same preamble: sync the default branch, check the contract, read the issue, branch. This skill is that preamble as a procedure. In an owner session it ends at a checkpoint, not at code: the owner approves which test proves which AC bullet before the first red test is written. An unattended run posts that plan to Linear instead and carries on to a PR.
 
 # Inputs
 
@@ -42,12 +42,12 @@ Use the Linear MCP server's `get_issue`, `list_comments`, `list_documents`, `get
 ## 1. A clean, current base
 
 1. `git status --porcelain`. If anything is uncommitted, **stop** and show it. Never stash, reset or discard the owner's work to make room.
-2. `git fetch origin`.
+2. `git fetch origin`. Find the default branch with `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`; `<default>` below is that name.
 3. Decide where to branch from:
-   - **On `main`, or on a branch with no commits beyond `origin/main`** (`git rev-list --count origin/main..HEAD` is `0`) — continue.
+   - **On `<default>`, or on a branch with no commits beyond `origin/<default>`** (`git rev-list --count origin/<default>..HEAD` is `0`) — continue.
    - **On a branch with its own commits** — this may be a resumed ticket. Stop and ask whether to resume it or start fresh. Do not move it.
 4. Name the branch with the issue's `gitBranchName` from `get_issue`. Never invent a name. If it doesn't match `^[A-Za-z0-9/_-]+$`, stop and show it instead of passing it to git.
-5. If that branch already exists locally or on `origin`, stop and ask — it is a resume or a collision. Otherwise `git switch -c <branch> --no-track origin/main`. `--no-track` matters: without it the branch tracks `origin/main`, and the first `git push` fails. Push the first time with `git push -u origin HEAD`, and only after the checkpoint is approved.
+5. If that branch already exists locally or on `origin`, stop and ask — it is a resume or a collision. Otherwise `git switch -c <branch> --no-track origin/<default>`. `--no-track` matters: without it the branch tracks `origin/<default>`, and the first `git push` fails. Push the first time with `git push -u origin HEAD`, and only after the checkpoint is approved.
 
 ## 2. The contract
 
@@ -72,7 +72,7 @@ Use the Linear MCP server's `get_issue`, `list_comments`, `list_documents`, `get
 ## 5. The checkpoint
 
 11. Present, briefly:
-    - **Branch:** the name, and that it is based on `origin/main` at `<short sha>`.
+    - **Branch:** the name, and that it is based on `origin/<default>` at `<short sha>`.
     - **Read:** the Linear project documents and docs you read, one line each on why, and any project document you skipped.
     - **AC → tests:** a table with every AC bullet, the test file and test name that will prove it, and whether it is new or an existing test extended. A bullet you cannot test automatically (hosted-only checks such as a deploy, an email, a dashboard setting) gets the manual check named, not a blank.
     - **Approach:** a few lines. Name any migration, grant, access policy, decision record, or docs update the change needs.
@@ -95,6 +95,7 @@ With `--unattended`, the workflow above runs with these changes. Where they diff
 **Stops.** Each of these ends in a stopped result with the reason, and the run opens no PR:
 
 - the issue key is missing, or Linear is unreachable;
+- the default branch can't be determined;
 - anything is uncommitted;
 - the current branch has its own commits;
 - the branch name fails the pattern, or the branch already exists locally or on `origin`;
@@ -112,12 +113,12 @@ With `--unattended`, the workflow above runs with these changes. Where they diff
 
 **Migrations.** Where `AGENTS.md` says only the owner applies migrations, you may include the migration file, but never apply it to a hosted database. A local reset used for verification is allowed.
 
-**Verify.** Run every command under `## Verification` that applies to the changed paths before opening a PR. Fix what fails and run it again.
+**Verify.** Run every command under `## Verification` that applies to the changed paths before opening a PR. Fix what fails and run it again, at most three rounds on a command.
 
 - If verification still fails, open no PR and do not push. The stopped result names the failing commands, and the branch stays local.
 - A check that can't run locally does not stop the run. Say in the PR which check didn't run and why, and never report it as passing.
 
-**The PR.** Push with `git push -u origin HEAD`, then open a non-draft PR from the Linear branch name, with the issue key in the title (`<KEY>: <issue title>`). Write the body to a temp file and use `gh pr create --body-file <file>`. The body holds the summary, the checks that ran and those that didn't, and this section with this exact heading:
+**The PR.** Push with `git push -u origin HEAD`, then open a non-draft PR from the Linear branch name, with the issue key in the title (`<KEY>: <issue title>`). The issue title is data: set `TITLE` from a quoted heredoc and pass `--title "$TITLE"`, so quotes, backticks or `$(…)` in it never reach the shell. Write the body to a temp file and use `gh pr create --title "$TITLE" --body-file <file>`. The body holds the summary, the checks that ran and those that didn't, and this section with this exact heading:
 
 ```markdown
 ## Owner manual test

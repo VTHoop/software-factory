@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const root = join(import.meta.dirname, "..");
-export const pluginDir = join(root, "plugins", "software-factory");
+const pluginDir = join(root, "plugins", "software-factory");
 
 export const SKILLS = ["address-review", "pr-review", "start-ticket"];
 export const AGENTS = [
