@@ -79,7 +79,7 @@ A stopped skill posts no escalation comment or label: the script that started th
 
 ## Phase 3: Spawn the reviewers in parallel
 
-Spawn the active reviewers in a single message with parallel `Agent` calls — up to six. Use the namespaced names below, so a personal agent with the same short name can't stand in for them. The requirements reviewer is **skipped** if no Linear MCP connection is available, or if a connection is available but no ticket key was obtainable. Pass each reviewer its inputs by **embedding them in that reviewer's spawn prompt** (subagents read their inputs from the prompt text — there is no structured-parameter channel). Each reviewer receives: the checkout directory, base branch, head branch, the changed-file list, its reviewer-specific inputs, and the flywheel `[review]` lessons (if any). Tell each reviewer explicitly: obtain the diff and read files with local `git` in that checkout — reviewers don't contact the PR service themselves, since you've already handed them the branches and changed files.
+Spawn the active reviewers in a single message with parallel `Agent` calls — up to six. Use the namespaced names below, so a personal agent with the same short name can't stand in for them. The requirements reviewer is **skipped** if no Linear MCP connection is available, or if a connection is available but no ticket key was obtainable. Pass each reviewer its inputs by **embedding them in that reviewer's spawn prompt** (subagents read their inputs from the prompt text — there is no structured-parameter channel). Each reviewer receives: the checkout directory, base branch, head branch, the changed-file list, its reviewer-specific inputs, and the flywheel `[review]` lessons (if any). Tell each reviewer explicitly: obtain the diff and read files with local `git` in that checkout — reviewers don't contact the PR service themselves, since you've already handed them the branches and changed files. Every spawn prompt also says: read every changed file in full, and end the report with the `Files read` lines.
 
 | Lens | `subagent_type` | Extra inputs | Conditional |
 |---|---|---|---|
@@ -90,7 +90,9 @@ Spawn the active reviewers in a single message with parallel `Agent` calls — u
 | Broader impact & simplification | `software-factory:sdlc-review-impact` | — | always |
 | Modernization scout | `software-factory:sdlc-review-modernization` | — (reads the manifest itself) | always |
 
-Each returns `LGTM` or findings in its prescribed format.
+Each returns `LGTM` or findings in its prescribed format, followed by its `Files read` lines.
+
+**Check coverage before trusting a report.** Compare each reviewer's `Files read` lines with the changed-file list. An LGTM without full coverage is a failed reviewer, and so is a report with no `Files read` lines. Spawn it once more, naming the files it missed. If it is still incomplete, say which lens and files in the summary, keep that lens's findings, and the **Overall** line is never `Approved`.
 
 ## Phase 4: Validate findings (confirm-or-kill)
 
@@ -142,7 +144,7 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 
 **Continue** when the PR was already reviewed, or was authored by the current account, without asking.
 
-**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. A reviewer that fails to run is a stop, not a smaller review.
+**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. A reviewer that fails to run, or still has incomplete coverage after its second try, is a stop, not a smaller review.
 
 **Posting.** Post the summary comment without asking for confirmation, with `gh pr comment <n> --body-file <file>`, in the Output Format below, and no inline comments. Then end with the finished result, whatever the **Overall** line says.
 <!-- unattended:end -->
