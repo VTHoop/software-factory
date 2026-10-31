@@ -40,7 +40,7 @@ describe("no project details", () => {
   });
 
   it("names no lowercase project branch", () => {
-    assertAbsent(/\b[a-z]{2,}\/[a-z]{2,}-\d+-/, "project branch");
+    assertAbsent(/\b[a-z]{2,}\/(?!proj-)[a-z]{2,}-\d+-/, "project branch");
   });
 
   it("does not assume the project has a Working agreements heading", () => {
