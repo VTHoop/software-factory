@@ -113,7 +113,7 @@ Read paths:
 
 Each returns `LGTM` or findings in its prescribed format, followed by its `Files read` lines.
 
-**Check coverage before trusting a report.** Compare the `Read paths:` list in each report: its paths must cover the changed-file list, path by path. A matching total is not enough, because the `Files read: <n> of <m>` numbers are the reviewer's own count. A changed file missing from `Read paths:`, or one the reviewer says it read through the diff or did not open in full, counts as not read. An LGTM without full coverage is a failed reviewer, and so is a report with no `Files read` or `Read paths:` lines. Spawn it once more, naming the files it missed. If it is still incomplete, say which lens and files in the summary, keep that lens's findings, and the **Overall** line is never `Approved`.
+**Check coverage before trusting a report.** Compare the `Read paths:` list in each report: its paths must cover the changed-file list, path by path. A matching total is not enough, because the `Files read: <n> of <m>` numbers are the reviewer's own count. A changed file missing from `Read paths:`, or one the reviewer says it read through the diff or did not open in full, counts as not read. An LGTM without full coverage is a failed reviewer, and so is a report with no `Files read` or `Read paths:` lines. Spawn it once more, naming the files it missed, with the same reviewer prompt. If it is still incomplete, say which lens and files in the summary, keep that lens's findings, and the **Overall** line is never `Approved`.
 
 ## Phase 4: Validate findings (confirm-or-kill)
 
