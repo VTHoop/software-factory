@@ -81,6 +81,10 @@ describe("pr-review compares the paths each reviewer read", () => {
     assert.match(text(), /never `Approved`/);
   });
 
+  it("respawns a reviewer with the same reviewer prompt", () => {
+    assert.match(text(), /spawn it once more, naming the files it missed, with the same reviewer prompt/i);
+  });
+
   it("never asks an agent to recount its earlier reasoning", () => {
     assert.doesNotMatch(text(), /recount|recall your (earlier )?reasoning|explain your earlier/i);
   });
