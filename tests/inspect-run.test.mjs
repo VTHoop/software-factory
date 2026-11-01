@@ -274,6 +274,24 @@ describe("inspectRun: reads inside shell loops, with the changed-file list", () 
     assert.deepEqual(rev.partial, []);
   });
 
+  it("fills a loop variable into a path template", () => {
+    const changed = [...CHANGED, "plugins/x/agents/sdlc-review-c.md"];
+    const r = reads(
+      'for f in a b c; do echo "=== $f"; git show origin/feature:plugins/x/agents/sdlc-review-$f.md; done',
+      { changed },
+    );
+    assert.deepEqual(r.opened, ["plugins/x/agents/sdlc-review-c.md"]);
+    const short = reads("for f in README LICENSE; do git show origin/feature:${f}; done", { changed: ["README", "LICENSE"] });
+    assert.deepEqual(short.opened, ["LICENSE", "README"]);
+  });
+
+  it("expands braces in a path or a loop list", () => {
+    const r = reads("git show origin/feature:plugins/x/agents/{a,b}.md");
+    assert.deepEqual(r.opened, ["plugins/x/agents/a.md", "plugins/x/agents/b.md"]);
+    const loop = reads("for f in plugins/x/agents/{a,b}.md; do git show origin/feature:$f; done");
+    assert.deepEqual(loop.opened, ["plugins/x/agents/a.md", "plugins/x/agents/b.md"]);
+  });
+
   it("lists the changed files a reviewer never opened in full", () => {
     const r = inspectRun(
       stream(init, spawn("a0", LENSES[0], promptFor(FOCUS[LENSES[0]])), call("a0", "Bash", { command: "git show origin/feature:LICENSE" }), result()),
