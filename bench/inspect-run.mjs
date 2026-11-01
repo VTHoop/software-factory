@@ -47,10 +47,23 @@ const SHOW = /git(?: -C \S+)? show\s/;
 const FULL_SHOW = /git(?: -C \S+)? show\s+\S+\s*(?=;|&&|\n|$|\bdone\b)/;
 const LITERAL_SHOW = /git(?: -C \S+)? show\s+origin\/[^\s:]+:([^\s|;&$]+)/g;
 
-const globs = (cmd) =>
-  [...cmd.matchAll(/[\w.\/{},-]*\*[\w.\/{},*-]*/g)].map(
-    (m) => new RegExp(`^${escape(m[0]).replace(/\\\*/g, "[^/]*")}$`),
+const globToRegExp = (token) =>
+  new RegExp(
+    `^${escape(token)
+      .replace(/\\\*/g, "[^/]*")
+      .replace(/\\\{([^}\\]*)\\\}/g, (_, alts) => `(${alts.split(",").join("|")})`)}$`,
   );
+
+const globs = (cmd) =>
+  [...cmd.matchAll(/[\w.\/{},*-]*[*{][\w.\/{},*-]*/g)].map((m) => globToRegExp(m[0]));
+
+// `for f in a b c; do ... $f ...` becomes one command per word.
+const expandLoop = (cmd) => {
+  const m = cmd.match(/for (\w+) in ([^;\n]+?);\s*do\b/);
+  if (!m) return [cmd];
+  const variable = new RegExp(`\\$(?:\\{${m[1]}\\}|${m[1]}\\b)`, "g");
+  return m[2].trim().split(/\s+/).map((word) => cmd.replace(variable, word));
+};
 
 // What a Read or Bash call opened: [{ path, full }]. A shell loop is read by
 // matching the changed files against the paths and globs in the command, so
@@ -62,17 +75,21 @@ const opened = (use, cwd, changed) => {
     return path ? [{ path, full }] : [];
   }
   if (use.name !== "Bash") return [];
-  const cmd = use.input.command ?? "";
-  if (!SHOW.test(cmd)) return [];
   const found = new Map();
-  for (const m of cmd.matchAll(LITERAL_SHOW)) {
-    const after = cmd.slice(m.index + m[0].length).trimStart();
-    found.set(m[1], !after.startsWith("|"));
-  }
-  const fullCmd = FULL_SHOW.test(cmd);
-  const res = globs(cmd);
-  for (const p of changed ?? []) {
-    if (!found.has(p) && (cmd.includes(p) || res.some((re) => re.test(p)))) found.set(p, fullCmd);
+  for (const cmd of expandLoop(use.input.command ?? "")) {
+    if (!SHOW.test(cmd)) continue;
+    const here = new Map();
+    for (const m of cmd.matchAll(LITERAL_SHOW)) {
+      if (/[*{]/.test(m[1])) continue;
+      const after = cmd.slice(m.index + m[0].length).trimStart();
+      here.set(m[1], !after.startsWith("|"));
+    }
+    const fullCmd = FULL_SHOW.test(cmd);
+    const res = globs(cmd);
+    for (const p of changed ?? []) {
+      if (!here.has(p) && (cmd.includes(p) || res.some((re) => re.test(p)))) here.set(p, fullCmd);
+    }
+    for (const [path, full] of here) found.set(path, found.get(path) || full);
   }
   return [...found].map(([path, full]) => ({ path, full }));
 };

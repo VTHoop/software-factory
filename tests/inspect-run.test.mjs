@@ -280,7 +280,11 @@ describe("inspectRun: reads inside shell loops, with the changed-file list", () 
       'for f in a b c; do echo "=== $f"; git show origin/feature:plugins/x/agents/sdlc-review-$f.md; done',
       { changed },
     );
-    assert.deepEqual(r.opened, ["plugins/x/agents/sdlc-review-c.md"]);
+    assert.deepEqual(r.opened, [
+      "plugins/x/agents/sdlc-review-a.md",
+      "plugins/x/agents/sdlc-review-b.md",
+      "plugins/x/agents/sdlc-review-c.md",
+    ]);
     const short = reads("for f in README LICENSE; do git show origin/feature:${f}; done", { changed: ["README", "LICENSE"] });
     assert.deepEqual(short.opened, ["LICENSE", "README"]);
   });
