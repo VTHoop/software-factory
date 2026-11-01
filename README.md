@@ -73,6 +73,16 @@ claude plugin validate .
 
 The tests use no dependencies. Skills are prose, so most tests pin wording. A release is a `vX.Y.Z` tag matching `version` in `plugin.json`, and CI fails a tag that doesn't match.
 
+### Checking a review run
+
+`pr-review` spawns every reviewer from one fixed prompt with a required `Focus:` line. To check a headless run (`claude -p … --output-format stream-json`):
+
+```bash
+node bench/inspect-run.mjs run.jsonl --skill plugins/software-factory/skills/pr-review/SKILL.md
+```
+
+It reports, per reviewer, whether the prompt had the fixed wording and a focus, and which files were opened in full or only in part, plus any permission denials. It exits 1 if a prompt lacks either or a command was denied. Reads are inferred from tool calls, so the skill cannot fully verify them by itself.
+
 ## License
 
 [MIT](LICENSE)
