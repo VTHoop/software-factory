@@ -1,0 +1,10 @@
+{
+  "name": "software-factory",
+  "version": "0.1.0",
+  "description": "start-ticket, pr-review, address-review and six review agents, each runnable by an owner or unattended.",
+  "author": {
+    "name": "VTHoop"
+  },
+  "repository": "https://github.com/VTHoop/software-factory",
+  "license": "MIT"
+}
