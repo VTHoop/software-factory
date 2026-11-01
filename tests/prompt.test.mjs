@@ -51,6 +51,18 @@ describe("every reviewer prompt has a focus", () => {
     assert.match(focus(), /do not spawn a reviewer without a Focus line/i);
   });
 
+  it("groups the changed files before writing any focus", () => {
+    assert.match(focus(), /group the changed files by kind and by directory/i);
+  });
+
+  it("names every group in at least two reviewers' focus lines", () => {
+    assert.match(focus(), /every group.*at least two reviewers'? Focus lines/is);
+  });
+
+  it("names groups by path, never by a suspected problem", () => {
+    assert.match(focus(), /name a group by its path/i);
+  });
+
   it("keeps the focus general: no finding from the answer key is named", () => {
     const key =
       /stale|trust rule|gh pr create|quoting|injection|rerun|twice|hard-?code|README|step numbers|flywheel|AngularJS|drone|pluginDir|heading style|stop-list/i;
