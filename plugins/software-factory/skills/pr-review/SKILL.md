@@ -99,7 +99,7 @@ Read paths:
 <!-- reviewer-prompt:end -->
 
 <!-- reviewer-focus:start -->
-**The `Focus:` line.** Each one is written from what this PR changes: read the changed-file list and the kind of files in it (code, prose skills, config, CI, docs), then say in one or two lines what this reviewer's lens should look for in those files. Keep it general: it points the lens at the kind of change, it does not name a suspected problem. A PR of mostly instructions, for example, is reviewed for what those instructions make an agent or a runner do. Do not spawn a reviewer without a Focus line, and do not reuse one line for several reviewers.
+**The `Focus:` line.** Each one is written from what this PR changes: read the changed-file list and the kind of files in it (code, prose skills, config, CI, docs), then say in one or two lines what this reviewer's lens should look for in those files. Before writing any of them, group the changed files by kind and by directory: each skill, each agent, CI, tests, docs, manifests. Every group is named in at least two reviewers' Focus lines, so no part of the PR is left to one lens or to none. Name a group by its path, not by a suspected problem. Keep it general: it points the lens at the kind of change, it does not name a suspected problem. A PR of mostly instructions, for example, is reviewed for what those instructions make an agent or a runner do. Do not spawn a reviewer without a Focus line, and do not reuse one line for several reviewers.
 <!-- reviewer-focus:end -->
 
 | Lens | `subagent_type` | Extra inputs | Conditional |
