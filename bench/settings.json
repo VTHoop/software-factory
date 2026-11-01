@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(command -v gh)",
+      "Bash(git fetch:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git cat-file:*)",
+      "Bash(git branch:*)",
+      "Bash(git symbolic-ref:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh auth status)",
+      "Bash(gh api user:*)",
+      "Write(//tmp/**)",
+      "Write(//private/tmp/**)",
+      "mcp__linear__get_issue"
+    ],
+    "deny": [
+      "Bash(gh pr merge:*)",
+      "Bash(git push:*)",
+      "Write(.github/**)",
+      "Edit(.github/**)"
+    ]
+  }
+}
