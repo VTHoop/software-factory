@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isTrustedPr, trustedComments, validBranch } from "../../orchestrator/access.mjs";
 
-const config = { repo: "VTHoop/disciplined-sidekick", trustedAuthors: ["VTHoop", "factory-bot"] };
+const config = { githubRepo: "VTHoop/disciplined-sidekick", trustedAuthors: ["VTHoop", "factory-bot"] };
 
 describe("validBranch", () => {
   it("accepts the Linear branch name", () => {
