@@ -72,6 +72,21 @@ describe("review", () => {
     assert.equal(result.reviews, 1);
   });
 
+  it("removes its checkout afterwards, so review checkouts do not pile up", async () => {
+    const deps = makeDeps({ claude: async () => reviewOutput() });
+    await review(withPr, deps);
+    assert.deepEqual(deps.calls.find((c) => c[0] === "git.removeWorktree").slice(1), ["/work/repo", "/work/review/pr-7"]);
+  });
+
+  it("removes its checkout even when the run fails or throws", async () => {
+    const stopped = makeDeps({ claude: async () => output({ is_error: true }) });
+    await review(withPr, stopped);
+    assert.ok(stopped.calls.some((c) => c[0] === "git.removeWorktree"));
+    const throwing = makeDeps({ claude: async () => { throw Object.assign(new Error("limit"), { planLimit: {} }); } });
+    await assert.rejects(review(withPr, throwing));
+    assert.ok(throwing.calls.some((c) => c[0] === "git.removeWorktree"));
+  });
+
   it("fails the ticket when the six reviewers did not all run", async () => {
     const shortcut = output({ subagent_stats: { spawned: 0, by_type: {} } });
     const result = await review(withPr, makeDeps({ claude: async () => shortcut }));

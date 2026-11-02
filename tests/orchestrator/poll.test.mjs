@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -148,5 +148,40 @@ describe("poll", () => {
     const { ctx, deps } = setup({ tickets });
     await poll(ctx);
     assert.ok(deps.calls.some((c) => c[0] === "escalate" && c[1] === "HEA-4"));
+  });
+
+  it("cleans up worktrees inside the lock and clears only the ones it removed", async () => {
+    const tickets = [
+      { key: "HEA-3", phase: "handed-off", pr: 3, worktree: "/wt/3" },
+      { key: "HEA-4", phase: "handed-off", pr: 4, worktree: "/wt/4" },
+    ];
+    const { ctx, deps, stateDir } = setup({ issues: [ready], tickets });
+    let lockHeld;
+    deps.cleanup = async () => {
+      lockHeld = existsSync(join(stateDir, "lock"));
+      return ["HEA-3"];
+    };
+    await poll(ctx);
+    assert.equal(lockHeld, true);
+    const saved = loadState(stateDir);
+    const byKey = Object.fromEntries(saved.tickets.map((t) => [t.key, t]));
+    assert.equal(byKey["HEA-3"].worktree, undefined);
+    assert.equal(byKey["HEA-4"].worktree, "/wt/4");
+    assert.ok(byKey["HEA-5"], "the step's update was kept");
+  });
+
+  it("cleans up even when there is nothing else to do", async () => {
+    const tickets = [{ key: "HEA-3", phase: "handed-off", pr: 3, worktree: "/wt/3" }];
+    const { ctx, deps, stateDir } = setup({ tickets });
+    deps.cleanup = async () => ["HEA-3"];
+    await poll(ctx);
+    assert.equal(loadState(stateDir).tickets[0].worktree, undefined);
+  });
+
+  it("does not clean up when another invocation holds the lock", async () => {
+    const { ctx, deps, stateDir } = setup({ tickets: [{ key: "HEA-3", phase: "handed-off", pr: 3, worktree: "/wt/3" }] });
+    writeFileSync(join(stateDir, "lock"), String(process.pid));
+    deps.cleanup = async () => assert.fail("cleaned up outside the lock");
+    await poll(ctx);
   });
 });

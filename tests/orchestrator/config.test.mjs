@@ -62,6 +62,10 @@ describe("loadConfig", () => {
     assert.equal(loadConfig(write(base)).entries[0].projects, undefined);
   });
 
+  it("requires each entry's GitHub repo, which every PR is checked against", () => {
+    assert.throws(() => loadConfig(write({ ...base, entries: [{ repo: "/x", team: "T" }] })), /githubRepo/);
+  });
+
   it("rejects an empty projects list, which would match nothing", () => {
     assert.throws(() => loadConfig(write({ ...base, entries: [{ ...entry, projects: [] }] })), /projects/);
   });

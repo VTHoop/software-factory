@@ -20,6 +20,15 @@ describe("orchestrator README", () => {
   it("names the secrets file outside the repo", () => {
     assert.match(section(), /~\/\.config\/software-factory\/secrets\.env/);
   });
+  it("documents every setting and how the script exits", () => {
+    for (const word of ["ciIntervalMs", "ciTimeoutMs", "previewAuthors", "SOFTWARE_FACTORY_CONFIG", "exit code"]) {
+      assert.ok(section().includes(word), `missing ${word}`);
+    }
+  });
+  it("says the deny rules are guardrails and base-branch protection is needed", () => {
+    assert.match(section(), /guardrail/i);
+    assert.match(section(), /branch protection/i);
+  });
   it("is linked from the main README", () => {
     assert.match(read("README.md"), /orchestrator\/README\.md/);
   });

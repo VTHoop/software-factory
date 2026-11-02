@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { notify } from "../../orchestrator/notify.mjs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { loadSecrets, notify } from "../../orchestrator/notify.mjs";
 
 const secrets = { PUSHOVER_USER_KEY: "u-key", PUSHOVER_APP_TOKEN: "a-token" };
 
@@ -32,5 +35,20 @@ describe("notify", () => {
       assert.ok(!e.message.includes("u-key") && !e.message.includes("a-token"));
       return true;
     });
+  });
+
+  it("puts a time limit on the request", async () => {
+    let signal;
+    const fetch = async (url, init) => ((signal = init.signal), { ok: true });
+    await notify({ kind: "pause", title: "t", message: "m" }, { secrets, fetch });
+    assert.ok(signal instanceof AbortSignal);
+  });
+});
+
+describe("loadSecrets", () => {
+  it("reads NAME=value lines, with comments, export and quotes", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "sf-secrets-")), "secrets.env");
+    writeFileSync(file, '# comment\nexport PUSHOVER_USER_KEY="u-key"\nPUSHOVER_APP_TOKEN=a-token # note\n');
+    assert.deepEqual(loadSecrets(file), { PUSHOVER_USER_KEY: "u-key", PUSHOVER_APP_TOKEN: "a-token" });
   });
 });

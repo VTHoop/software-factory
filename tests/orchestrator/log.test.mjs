@@ -45,3 +45,14 @@ describe("appendLog", () => {
     assert.deepEqual(lines.map((l) => l.key), ["HEA-1", "HEA-2"]);
   });
 });
+
+describe("runRecord redaction", () => {
+  it("does not log a credential from a denied command", () => {
+    const token = `ghp_${"a".repeat(24)}`;
+    const r = runRecord(
+      reviewOutput({ permission_denials: [{ tool_name: "Bash", tool_input: { command: `echo ${token}` } }] }),
+      { key: "HEA-1", step: "review" },
+    );
+    assert.ok(!r.denied.join(" ").includes(token));
+  });
+});

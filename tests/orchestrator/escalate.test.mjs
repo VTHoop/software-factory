@@ -59,4 +59,22 @@ describe("escalate", () => {
     assert.equal(result.phase, "escalated");
     assert.equal(result.reason, "why");
   });
+
+  it("adds the label and status before it posts any comment, so a failing step posts nothing twice", async () => {
+    const { calls, deps } = make();
+    await escalate({ key: "HEA-1", pr: null }, "why", deps);
+    const order = calls.map((c) => c[0]);
+    assert.ok(order.indexOf("linear.addLabel") < order.indexOf("linear.comment"));
+    assert.ok(order.indexOf("linear.setStatus") < order.indexOf("linear.comment"));
+  });
+
+  it("still marks the ticket escalated when the notification fails", async () => {
+    const { deps } = make();
+    deps.notify = async () => {
+      throw new Error("Pushover returned HTTP 500");
+    };
+    const result = await escalate({ key: "HEA-1", pr: 7 }, "why", deps);
+    assert.equal(result.phase, "escalated");
+    assert.match(result.notifyError, /Pushover/);
+  });
 });

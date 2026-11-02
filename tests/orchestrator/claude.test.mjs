@@ -57,6 +57,32 @@ describe("buildSettings", () => {
     assert.ok(permissions.deny.some((d) => /^(Write|Edit)\(.*\.github/.test(d)));
   });
 
+  const denies = (pattern) => permissions.deny.some((d) => pattern.test(d));
+
+  it("denies merging through `gh -R <repo> pr merge`", () => {
+    assert.ok(denies(/^Bash\(gh \* pr merge/));
+  });
+
+  it("denies merging through the API", () => {
+    assert.ok(denies(/^Bash\(gh api .*merge/));
+  });
+
+  it("denies force pushes and + refspecs", () => {
+    assert.ok(denies(/git push --force/));
+    assert.ok(denies(/git push -f/));
+    assert.ok(denies(/git push \* \+/));
+  });
+
+  it("denies pushing any refspec that ends in the base branch", () => {
+    assert.ok(denies(/git push \* \*:main/));
+    assert.ok(denies(/git push \* \*:refs\/heads\/main/));
+  });
+
+  it("denies shell writes under .github/", () => {
+    assert.ok(denies(/sed -i.*\.github/));
+    assert.ok(denies(/>.*\.github/));
+  });
+
   it("adds the project's extra denials", () => {
     assert.ok(permissions.deny.includes("Bash(supabase db push:*)"));
   });
@@ -84,6 +110,15 @@ describe("runClaude", () => {
     });
     assert.equal(r.timedOut, true);
     assert.ok(Date.now() - started < 5000);
+  });
+
+  it("resolves at the time limit even when a grandchild keeps the output pipes open", async () => {
+    const script =
+      'require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>{},15000)"],{stdio:"inherit"});setTimeout(()=>{},15000)';
+    const started = Date.now();
+    const r = await runClaude({ bin: node, args: ["-e", script], timeoutMs: 200 });
+    assert.equal(r.timedOut, true);
+    assert.ok(Date.now() - started < 5000, "waited for the grandchild");
   });
 
   it("reports unreadable output as an error, not a crash", async () => {

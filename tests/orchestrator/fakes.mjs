@@ -1,11 +1,6 @@
-export const REVIEWERS = [
-  "impact",
-  "modernization",
-  "patterns",
-  "performance",
-  "quality",
-  "requirements",
-].map((n) => `software-factory:sdlc-review-${n}`);
+import { REVIEWERS as NAMES } from "../../orchestrator/checks.mjs";
+
+export const REVIEWERS = NAMES.map((n) => `software-factory:sdlc-review-${n}`);
 
 export const finished = '\nSOFTWARE_FACTORY_RESULT: {"status":"finished"}';
 
@@ -56,6 +51,7 @@ export const makeDeps = (over = {}) => {
     git: {
       addWorktree: record("git.addWorktree", () => "/work/wt/hea-1"),
       addReviewCheckout: record("git.addReviewCheckout", () => "/work/review/pr-7"),
+      removeWorktree: record("git.removeWorktree"),
     },
     github: {
       findPr: record("github.findPr", () => ({ number: 7 })),

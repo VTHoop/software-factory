@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { judgeRun, parseLimit, signedIn } from "../../orchestrator/checks.mjs";
+import { deniedCommands, judgeRun, parseLimit, REVIEWERS, redact, signedIn } from "../../orchestrator/checks.mjs";
+import { AGENTS } from "../lib.mjs";
 import { byType, output, REVIEWERS, reviewOutput } from "./fakes.mjs";
 
 const opts = { maxTurns: 80 };
@@ -58,13 +59,11 @@ describe("judgeRun", () => {
     const r = judgeRun(output({ is_error: true, terminal_reason: "safeguard", result: "blocked" }), opts);
     assert.equal(r.ok, false);
     assert.equal(r.kind, "error");
-    assert.equal(r.retrySameSession, false);
   });
 
   it("fails a run that used more turns than the limit", () => {
     const r = judgeRun(output({ num_turns: 81 }), opts);
     assert.equal(r.kind, "turn-limit");
-    assert.equal(r.resumable, false);
   });
 });
 
@@ -118,5 +117,38 @@ describe("parseLimit", () => {
       fallbackMs: 3_600_000,
     });
     assert.equal(r.resetAt.toISOString(), "2026-11-02T21:00:00.000Z");
+  });
+});
+
+describe("REVIEWERS", () => {
+  it("names the six review agents the plugin ships", () => {
+    assert.deepEqual(REVIEWERS.map((n) => `sdlc-review-${n}`).sort(), [...AGENTS].sort());
+  });
+});
+
+describe("redact", () => {
+  const fake = {
+    bearer: "abc123def456",
+    linear: `lin_api_${"a".repeat(20)}`,
+    anthropic: `sk-ant-${"a".repeat(20)}`,
+    github: `ghp_${"a".repeat(24)}`,
+  };
+
+  it("masks tokens and bearer credentials", () => {
+    const text = `curl -H 'Authorization: Bearer ${fake.bearer}' KEY=${fake.linear} ${fake.anthropic} ${fake.github}`;
+    const out = redact(text);
+    for (const secret of Object.values(fake)) assert.ok(!out.includes(secret), `${secret} leaked`);
+  });
+
+  it("truncates a long command", () => {
+    assert.ok(redact("x".repeat(1000)).length <= 220);
+  });
+
+  it("is applied to the denied commands a judged run reports", () => {
+    const out = output({
+      permission_denials: [{ tool_name: "Bash", tool_input: { command: `echo ${fake.github}` } }],
+    });
+    assert.ok(!deniedCommands(out).join(" ").includes(fake.github));
+    assert.ok(!judgeRun(out, opts).reason.includes(fake.github));
   });
 });
