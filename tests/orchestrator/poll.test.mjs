@@ -10,6 +10,7 @@ const now = new Date("2026-11-02T20:00:00Z");
 const ready = {
   key: "HEA-5",
   status: "Ready",
+  team: "Health Agent",
   project: "Sidekick",
   priority: 2,
   createdAt: "2026-11-01T00:00:00Z",
@@ -36,7 +37,7 @@ const setup = ({ issues = [], tickets = [], config = {}, pausedUntil = null } = 
     },
     notify: async (n) => void calls.push(["notify", n.kind, n.message]),
   };
-  return { stateDir, deps, ctx: { stateDir, now, deps, config: { projects: ["Sidekick"], ...config } } };
+  return { stateDir, deps, ctx: { stateDir, now, deps, config: { entries: [{ repo: "/r", team: "Health Agent" }], ...config } } };
 };
 
 describe("poll", () => {
@@ -100,12 +101,12 @@ describe("poll", () => {
     assert.equal((await poll(idle.ctx)).acted, false);
   });
 
-  it("stops new work, but not a run in progress, when the project list is empty", async () => {
+  it("stops new work, but not a run in progress, when the entries list is empty", async () => {
     const tickets = [{ key: "HEA-4", phase: "implemented", pr: 7, reviews: 0 }];
-    const { ctx, deps } = setup({ issues: [ready], tickets, config: { projects: [] } });
+    const { ctx, deps } = setup({ issues: [ready], tickets, config: { entries: [] } });
     await poll(ctx);
     assert.deepEqual(deps.calls, [["review", "HEA-4"]]);
-    const idle = setup({ issues: [ready], config: { projects: [] } });
+    const idle = setup({ issues: [ready], config: { entries: [] } });
     assert.equal((await poll(idle.ctx)).acted, false);
   });
 

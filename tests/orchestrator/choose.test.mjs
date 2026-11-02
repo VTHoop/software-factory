@@ -2,10 +2,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { chooseIssue } from "../../orchestrator/choose.mjs";
 
-const config = { projects: ["Software Factory", "Sidekick"] };
+const config = {
+  entries: [
+    { repo: "/r/a", team: "Health Agent" },
+    { repo: "/r/b", team: "Platform", projects: ["Core"] },
+  ],
+};
 const issue = (key, over = {}) => ({
   key,
   status: "Ready",
+  team: "Health Agent",
   project: "Sidekick",
   priority: 3,
   createdAt: "2026-11-01T00:00:00Z",
@@ -24,8 +30,20 @@ describe("chooseIssue", () => {
     assert.equal(chooseIssue(issues, config), null);
   });
 
-  it("considers only configured projects", () => {
-    assert.equal(chooseIssue([issue("HEA-1", { project: "Other" })], config), null);
+  it("considers only configured teams", () => {
+    assert.equal(chooseIssue([issue("HEA-1", { team: "Other" })], config), null);
+  });
+
+  it("takes an issue from any project of a team-wide entry, or from none", () => {
+    assert.equal(chooseIssue([issue("HEA-1", { project: "Anything" })], config).key, "HEA-1");
+    assert.equal(chooseIssue([issue("HEA-2", { project: null })], config).key, "HEA-2");
+  });
+
+  it("takes from an entry that lists projects only those projects", () => {
+    const inside = issue("PLT-1", { team: "Platform", project: "Core" });
+    const outside = issue("PLT-2", { team: "Platform", project: "Other" });
+    assert.equal(chooseIssue([inside], config).key, "PLT-1");
+    assert.equal(chooseIssue([outside], config), null);
   });
 
   it("skips an issue labelled needs-owner", () => {

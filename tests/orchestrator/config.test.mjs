@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { defaultPaths, linearKeyFor, loadConfig, projectFor } from "../../orchestrator/config.mjs";
+import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "../../orchestrator/config.mjs";
 import { root } from "../lib.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "sf-config-"));
@@ -42,7 +42,7 @@ describe("loadConfig", () => {
     writeFileSync(file, JSON.stringify(config));
     return file;
   };
-  const entry = { repo: "/work/sidekick", githubRepo: "VTHoop/disciplined-sidekick", projects: ["Health Agent"] };
+  const entry = { repo: "/work/sidekick", githubRepo: "VTHoop/disciplined-sidekick", team: "Health Agent" };
   const base = { model: "sonnet", maxTurns: 80, runTimeoutMs: 1800000, trustedAuthors: ["VTHoop"], entries: [entry] };
 
   it("holds the model in one value", () => {
@@ -56,14 +56,48 @@ describe("loadConfig", () => {
     }
   });
 
-  it("requires each entry to name a repo and at least one project", () => {
-    assert.throws(() => loadConfig(write({ ...base, entries: [{ repo: "/x", projects: [] }] })), /projects/);
-    assert.throws(() => loadConfig(write({ ...base, entries: [{ projects: ["P"] }] })), /repo/);
+  it("requires each entry to name a repo and a team, and no project", () => {
+    assert.throws(() => loadConfig(write({ ...base, entries: [{ team: "T" }] })), /repo/);
+    assert.throws(() => loadConfig(write({ ...base, entries: [{ repo: "/x" }] })), /team/);
+    assert.equal(loadConfig(write(base)).entries[0].projects, undefined);
   });
 
-  it("finds the entry for a Linear project", () => {
-    assert.equal(projectFor(loadConfig(write(base)), "Health Agent").repo, "/work/sidekick");
-    assert.equal(projectFor(loadConfig(write(base)), "Other"), null);
+  it("rejects an empty projects list, which would match nothing", () => {
+    assert.throws(() => loadConfig(write({ ...base, entries: [{ ...entry, projects: [] }] })), /projects/);
+  });
+
+  it("accepts an empty entries list, which stops new work", () => {
+    assert.deepEqual(loadConfig(write({ ...base, entries: [] })).entries, []);
+  });
+
+  it("rejects two entries for one team unless each names projects", () => {
+    const other = { ...entry, repo: "/work/other" };
+    assert.throws(() => loadConfig(write({ ...base, entries: [entry, other] })), /team/);
+    const split = [
+      { ...entry, projects: ["A"] },
+      { ...other, projects: ["B"] },
+    ];
+    assert.equal(loadConfig(write({ ...base, entries: split })).entries.length, 2);
+  });
+});
+
+describe("entryFor", () => {
+  const teamWide = { repo: "/a", team: "T" };
+  const narrow = { repo: "/b", team: "T", projects: ["P"] };
+
+  it("finds the entry for a team", () => {
+    assert.equal(entryFor({ entries: [teamWide] }, { team: "T", project: "Any" }), teamWide);
+    assert.equal(entryFor({ entries: [teamWide] }, { team: "Other" }), null);
+  });
+
+  it("prefers an entry that lists the issue's project over the team-wide one", () => {
+    const config = { entries: [teamWide, narrow] };
+    assert.equal(entryFor(config, { team: "T", project: "P" }), narrow);
+    assert.equal(entryFor(config, { team: "T", project: "Q" }), teamWide);
+  });
+
+  it("does not match an entry that lists projects when the issue has none", () => {
+    assert.equal(entryFor({ entries: [narrow] }, { team: "T", project: null }), null);
   });
 });
 
