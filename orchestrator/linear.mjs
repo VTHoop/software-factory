@@ -1,4 +1,5 @@
 const ENDPOINT = "https://api.linear.app/graphql";
+const TIMEOUT_MS = 30_000;
 
 // Reads and writes Linear directly, with no model, using a personal API key.
 export const createLinear = (key, fetch = globalThis.fetch) => {
@@ -7,6 +8,7 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: key },
       body: JSON.stringify({ query: text, variables }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const body = await response.json();
     if (!response.ok || body.errors) {
@@ -15,13 +17,19 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
     return body.data;
   };
 
-  const issueByKey = async (issueKey) =>
-    (
-      await query(
+  // One lookup per issue for the life of the client, however many calls follow.
+  const lookups = new Map();
+  const issueByKey = (issueKey) => {
+    if (!lookups.has(issueKey)) {
+      const lookup = query(
         `query($id: String!) { issue(id: $id) { id team { id states { nodes { id name } } } } }`,
         { id: issueKey },
-      )
-    ).issue;
+      ).then((data) => data.issue);
+      lookup.catch(() => lookups.delete(issueKey));
+      lookups.set(issueKey, lookup);
+    }
+    return lookups.get(issueKey);
+  };
 
   return {
     async listIssues(entries) {
@@ -86,4 +94,10 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
       });
     },
   };
+};
+
+// Ready issues for every entry, each read with that entry's own Linear client.
+export const collectIssues = async (clients) => {
+  const lists = await Promise.all(clients.map(({ entry, linear }) => linear.listIssues([entry])));
+  return [...new Map(lists.flat().map((issue) => [issue.key, issue])).values()];
 };

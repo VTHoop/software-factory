@@ -1,4 +1,4 @@
-const REVIEWERS = ["impact", "modernization", "patterns", "performance", "quality", "requirements"];
+export const REVIEWERS = ["impact", "modernization", "patterns", "performance", "quality", "requirements"];
 
 export const signedIn = (statusJson) => {
   try {
@@ -21,9 +21,22 @@ const resultLine = (text) => {
   }
 };
 
-const deniedCommands = (output) =>
-  (output.permission_denials ?? []).map(
-    (d) => d.tool_input?.command ?? d.tool_input?.file_path ?? d.tool_name,
+const MAX_COMMAND = 200;
+
+// Denied commands are model-written and end up in comments, notifications and the log.
+export const redact = (text) => {
+  const masked = String(text)
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer [redacted]")
+    .replace(/lin_api_\w+/g, "[redacted]")
+    .replace(/sk-ant-[\w-]+/g, "[redacted]")
+    .replace(/gh[pousr]_\w+/g, "[redacted]")
+    .replace(/(\b[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)\w*=)\S+/g, "$1[redacted]");
+  return masked.length > MAX_COMMAND ? `${masked.slice(0, MAX_COMMAND)}…` : masked;
+};
+
+export const deniedCommands = (output) =>
+  (output.permission_denials ?? []).map((d) =>
+    redact(d.tool_input?.command ?? d.tool_input?.file_path ?? d.tool_name),
   );
 
 const reviewersMissing = (output) => {
@@ -41,7 +54,6 @@ export const judgeRun = (output, { maxTurns, expect }) => {
       ok: false,
       kind: "error",
       reason: `The run ended in an error (${output.terminal_reason ?? "unknown"}): ${String(output.result ?? "").slice(0, 300)}`,
-      retrySameSession: false,
     };
   }
   const denied = deniedCommands(output);
@@ -52,7 +64,6 @@ export const judgeRun = (output, { maxTurns, expect }) => {
     return {
       ok: false,
       kind: "turn-limit",
-      resumable: false,
       reason: `The run used ${output.num_turns} turns; the limit is ${maxTurns}.`,
     };
   }

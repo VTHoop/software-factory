@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { deniedCommands } from "./checks.mjs";
 
 export const runRecord = (output, { key, step, at, priorCostUsd = 0 }) => ({
   at,
@@ -15,9 +16,7 @@ export const runRecord = (output, { key, step, at, priorCostUsd = 0 }) => ({
     completed: output.subagent_stats?.completed ?? 0,
     failed: output.subagent_stats?.failed ?? 0,
   },
-  denied: (output.permission_denials ?? []).map(
-    (d) => d.tool_input?.command ?? d.tool_input?.file_path ?? d.tool_name,
-  ),
+  denied: deniedCommands(output),
 });
 
 export const appendLog = (file, record) => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deniedCommands, judgeRun, parseLimit, REVIEWERS, redact, signedIn } from "../../orchestrator/checks.mjs";
+import { deniedCommands, judgeRun, parseLimit, REVIEWERS as NAMES, redact, signedIn } from "../../orchestrator/checks.mjs";
 import { AGENTS } from "../lib.mjs";
 import { byType, output, REVIEWERS, reviewOutput } from "./fakes.mjs";
 
@@ -122,7 +122,7 @@ describe("parseLimit", () => {
 
 describe("REVIEWERS", () => {
   it("names the six review agents the plugin ships", () => {
-    assert.deepEqual(REVIEWERS.map((n) => `sdlc-review-${n}`).sort(), [...AGENTS].sort());
+    assert.deepEqual(NAMES.map((n) => `sdlc-review-${n}`).sort(), [...AGENTS].sort());
   });
 });
 

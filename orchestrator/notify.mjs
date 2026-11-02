@@ -1,16 +1,11 @@
 import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 
 const PUSHOVER = "https://api.pushover.net/1/messages.json";
 const MAX_MESSAGE = 1024;
+const TIMEOUT_MS = 15_000;
 
-export const loadSecrets = (file) =>
-  Object.fromEntries(
-    readFileSync(file, "utf8")
-      .split("\n")
-      .map((line) => line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/))
-      .filter(Boolean)
-      .map(([, key, value]) => [key, value.replace(/^(["'])(.*)\1$/, "$2")]),
-  );
+export const loadSecrets = (file) => parseEnv(readFileSync(file, "utf8"));
 
 // Handoffs, escalations and pauses all go out through here.
 export const notify = async ({ title, message, url }, { secrets, fetch = globalThis.fetch }) => {
@@ -21,6 +16,6 @@ export const notify = async ({ title, message, url }, { secrets, fetch = globalT
     message: message.length > MAX_MESSAGE ? `${message.slice(0, MAX_MESSAGE - 1)}…` : message,
   });
   if (url) body.set("url", url);
-  const response = await fetch(PUSHOVER, { method: "POST", body });
+  const response = await fetch(PUSHOVER, { method: "POST", body, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!response.ok) throw new Error(`Pushover returned HTTP ${response.status}`);
 };

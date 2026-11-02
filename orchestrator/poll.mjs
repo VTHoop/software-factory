@@ -1,6 +1,6 @@
 import { chooseIssue } from "./choose.mjs";
 import { nextAction } from "./flow.mjs";
-import { canStart, holdsSlot } from "./slot.mjs";
+import { canStart, slotHolder } from "./slot.mjs";
 import { acquireLock, isPaused, loadState, recover, saveState } from "./state.mjs";
 
 const MODEL_STEPS = new Set(["implement", "review", "answer"]);
@@ -12,18 +12,40 @@ const replace = (state, ticket) => ({
     : [...state.tickets, ticket],
 });
 
+// Removes finished tickets' worktrees. It reloads the state, so it never overwrites a step's update.
+const cleanUp = async (stateDir, deps) => {
+  const state = loadState(stateDir);
+  const removed = await deps.cleanup(state.tickets);
+  if (removed.length === 0) return;
+  saveState(stateDir, {
+    ...state,
+    tickets: state.tickets.map((t) => (removed.includes(t.key) ? { ...t, worktree: undefined } : t)),
+  });
+};
+
 // One invocation: run whatever step is due, then return. Nothing is due, nothing runs.
 export const poll = async ({ stateDir, now, deps, config }) => {
   const release = acquireLock(stateDir);
   if (!release) return { acted: false, reason: "another invocation is running" };
   try {
+    const result = await pollOnce({ stateDir, now, deps, config });
+    if (deps.cleanup) await cleanUp(stateDir, deps);
+    return result;
+  } finally {
+    release();
+  }
+};
+
+const pollOnce = async ({ stateDir, now, deps, config }) => {
+  {
     let state = loadState(stateDir);
     if (state.pausedUntil && new Date(state.pausedUntil) > now) {
       return { acted: false, reason: `paused until ${state.pausedUntil}` };
     }
     if (state.pausedUntil) state = { ...state, pausedUntil: null };
 
-    let ticket = state.tickets.find(holdsSlot);
+    const holder = slotHolder(state.tickets);
+    let ticket = state.tickets.find((t) => t.key === holder);
     if (ticket) {
       const recovery = recover(ticket);
       if (recovery.action === "escalate") {
@@ -74,7 +96,5 @@ export const poll = async ({ stateDir, now, deps, config }) => {
     }
     saveState(stateDir, replace(state, { ...result, running: undefined }));
     return { acted: true, key: ticket.key, action: action.type };
-  } finally {
-    release();
   }
 };

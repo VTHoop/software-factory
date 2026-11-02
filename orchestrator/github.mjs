@@ -1,16 +1,20 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { isTrustedPr, trustedComments } from "./access.mjs";
+import { exec } from "./exec.mjs";
 
-const run = promisify(execFile);
+const GH_TIMEOUT_MS = 60_000;
+const PREVIEW = /https:\/\/[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.vercel\.app(?:\/[^\s)>\]]*)?/;
+
+// The preview link a listed preview bot posted. Anyone can comment, so authors are matched exactly.
+export const previewUrl = (comments, authors) =>
+  comments
+    .filter((c) => authors.includes(c.author?.login))
+    .map((c) => c.body.match(PREVIEW)?.[0])
+    .find(Boolean);
 
 // Talks to GitHub through `gh`. Only PRs from branches in the configured repo are ever returned.
-export const createGithub = (config) => {
-  const gh = async (args, input) => {
-    const child = run("gh", ["-R", config.githubRepo, ...args], { maxBuffer: 32 * 1024 * 1024 });
-    if (input !== undefined) child.child.stdin.end(input);
-    return (await child).stdout;
-  };
+export const createGithub = (config, run = exec) => {
+  const gh = async (args, input) =>
+    (await run("gh", ["-R", config.githubRepo, ...args], { input, timeoutMs: GH_TIMEOUT_MS })).stdout;
   const json = async (args) => JSON.parse(await gh(args));
   const comments = async (pr) => trustedComments((await json(["pr", "view", String(pr), "--json", "comments"])).comments, config);
 
@@ -47,10 +51,7 @@ export const createGithub = (config) => {
 
     async prDetails(pr) {
       const data = await json(["pr", "view", String(pr), "--json", "number,url,body,comments"]);
-      const preview = data.comments
-        .filter((c) => /vercel/i.test(c.author?.login ?? ""))
-        .map((c) => c.body.match(/https:\/\/[\w.-]+\.vercel\.app\S*/)?.[0])
-        .find(Boolean);
+      const preview = previewUrl(data.comments, config.previewAuthors ?? ["vercel"]);
       return { number: data.number, url: data.url, body: data.body, previewUrl: preview };
     },
 

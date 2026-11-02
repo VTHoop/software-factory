@@ -40,7 +40,18 @@ Everything the script needs lives outside this repo.
 }
 ```
 
-`model` is passed to every step. `trustedAuthors` are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing.
+`model` is passed to every step. `trustedAuthors` are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing. `maxTurns` and `runTimeoutMs` limit each run; hitting either escalates the ticket. Optional settings:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `base` | `main` | The branch worktrees start from. |
+| `ciTimeoutMs` | 900000 | How long the handoff waits for CI on the head commit. |
+| `ciIntervalMs` | 30000 | How often it checks CI while it waits. |
+| `previewAuthors` | `["vercel"]` | The only GitHub logins whose preview links the handoff uses. |
+
+Set `SOFTWARE_FACTORY_CONFIG` to read the config from another path. The exit code is 0 when the poll ran, whether or not it acted, and 1 when it failed, such as when Claude is signed out.
+
+The deny rules in each run's settings are guardrails, not enforcement: they match command text, and a determined model or an unusual spelling can get past them. Turn on branch protection for the base branch on GitHub, so a push or merge to it is refused whatever a run does.
 
 The plugin must be installed at user level (see the main README, *Headless runs*), and `claude auth login` done as the user that runs the script. The environment that starts the script needs `PATH` to reach `gh`, `node`, `pnpm` and Docker, and the variable each repo's `.mcp.json` names for Linear (for Disciplined Sidekick, `LINEAR_HEA_API_KEY`). Never pass `--bare`: it doesn't use subscription sign-in.
 

@@ -48,7 +48,8 @@ describe("notify", () => {
 describe("loadSecrets", () => {
   it("reads NAME=value lines, with comments, export and quotes", () => {
     const file = join(mkdtempSync(join(tmpdir(), "sf-secrets-")), "secrets.env");
-    writeFileSync(file, '# comment\nexport PUSHOVER_USER_KEY="u-key"\nPUSHOVER_APP_TOKEN=a-token # note\n');
+    const [user, app] = ["PUSHOVER_USER_KEY", "PUSHOVER_APP_TOKEN"];
+    writeFileSync(file, `# comment\nexport ${user}="u-key"\n${app}=a-token # note\n`);
     assert.deepEqual(loadSecrets(file), { PUSHOVER_USER_KEY: "u-key", PUSHOVER_APP_TOKEN: "a-token" });
   });
 });

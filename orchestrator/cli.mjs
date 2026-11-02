@@ -1,23 +1,21 @@
 #!/usr/bin/env node
 // One poll: run whatever step is due, then exit. Start it by hand or from a loop.
-import { execFile } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { promisify } from "node:util";
 import { signedIn } from "./checks.mjs";
 import { buildArgs, buildSettings, runClaude } from "./claude.mjs";
 import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "./config.mjs";
 import { escalate } from "./escalate.mjs";
 import { createGithub } from "./github.mjs";
 import { handoff } from "./handoff.mjs";
-import { createLinear } from "./linear.mjs";
+import { exec } from "./exec.mjs";
+import { collectIssues, createLinear } from "./linear.mjs";
 import { appendLog } from "./log.mjs";
 import { loadSecrets, notify } from "./notify.mjs";
 import { poll } from "./poll.mjs";
 import { answer, implement, review } from "./steps.mjs";
-import { loadState, saveState } from "./state.mjs";
-import { addReviewCheckout, addWorktree, removeWorktree, staleWorktrees } from "./worktree.mjs";
+import { addReviewCheckout, addWorktree, cleanupWorktrees, pruneWorktrees, removeWorktree } from "./worktree.mjs";
 
 const paths = { ...defaultPaths(), ...(process.env.SOFTWARE_FACTORY_CONFIG ? { config: process.env.SOFTWARE_FACTORY_CONFIG } : {}) };
 const config = loadConfig(paths.config);
@@ -31,7 +29,7 @@ const ownerOf = (ticket) => {
 };
 
 const depsFor = (entry) => {
-  const github = createGithub({ githubRepo: entry.githubRepo, trustedAuthors: config.trustedAuthors });
+  const github = createGithub({ githubRepo: entry.githubRepo, trustedAuthors: config.trustedAuthors, previewAuthors: config.previewAuthors });
   const settings = join(paths.state, `settings-${Buffer.from(entry.repo).toString("hex").slice(0, 12)}.json`);
   mkdirSync(paths.state, { recursive: true });
   writeFileSync(settings, JSON.stringify(buildSettings(entry, { base: config.base })));
@@ -42,6 +40,7 @@ const depsFor = (entry) => {
     git: {
       addWorktree: (a) => addWorktree(a, paths.worktrees),
       addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees),
+      removeWorktree: (repo, path) => removeWorktree(repo, path),
     },
     claude: async ({ prompt, cwd, resume, model, maxTurns, timeoutMs }) => {
       const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, resume, settings }), cwd, timeoutMs });
@@ -57,7 +56,7 @@ const depsFor = (entry) => {
 };
 
 const preflight = async () => {
-  const { stdout } = await promisify(execFile)("claude", ["auth", "status"]).catch((e) => ({ stdout: e.stdout ?? "" }));
+  const { stdout } = await exec("claude", ["auth", "status"], { timeoutMs: 30_000 }).catch((e) => ({ stdout: e.stdout ?? "" }));
   const status = signedIn(stdout);
   if (!status.ok) throw new Error(status.message);
 };
@@ -72,11 +71,18 @@ const run = {
 };
 
 const clients = config.entries.map((entry) => ({ entry, linear: createLinear(linearKeyFor(entry.repo)) }));
-const listIssues = async () => {
-  const lists = await Promise.all(clients.map(({ entry, linear }) => linear.listIssues([entry])));
-  return [...new Map(lists.flat().map((issue) => [issue.key, issue])).values()];
-};
 
+const cleanup = (tickets) =>
+  cleanupWorktrees(tickets, {
+    prState: (pr, ticket) => forTicket(ticket).github.prState(pr),
+    remove: async (ticket) => {
+      const { repo } = ownerOf(ticket);
+      await removeWorktree(repo, ticket.worktree);
+      await pruneWorktrees(repo);
+    },
+  });
+
+// Exit code 0: the poll ran, whether or not it acted. 1: it failed, e.g. signed out or Linear unreachable.
 try {
   const result = await poll({
     stateDir: paths.state,
@@ -86,20 +92,11 @@ try {
       preflight,
       notify: send,
       run,
-      linear: { listIssues },
+      cleanup,
+      linear: { listIssues: () => collectIssues(clients) },
     },
   });
   console.log(JSON.stringify(result));
-  if (result.reason === "another invocation is running") process.exit(0);
-
-  const state = loadState(paths.state);
-  const states = {};
-  for (const t of state.tickets) {
-    if (t.worktree && t.pr) states[t.pr] = await forTicket(t).github.prState(t.pr);
-  }
-  const stale = staleWorktrees(state.tickets, states);
-  for (const t of stale) await removeWorktree(ownerOf(t).repo, t.worktree).catch(() => {});
-  if (stale.length) saveState(paths.state, { ...state, tickets: state.tickets.map((t) => (stale.includes(t) ? { ...t, worktree: undefined } : t)) });
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

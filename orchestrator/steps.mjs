@@ -68,17 +68,21 @@ export const implement = async (ticket, deps) => {
 
 export const review = async (ticket, deps) => {
   const cwd = await deps.git.addReviewCheckout({ repo: deps.config.repo, pr: ticket.pr });
-  const { output, judged } = await run(
-    ticket,
-    deps,
-    "review",
-    { prompt: `/software-factory:pr-review ${ticket.pr} --unattended`, cwd },
-    "review",
-  );
-  if (!judged.ok) return fail(ticket, judged);
-  const outcome = await deps.github.reviewOutcome(ticket.pr);
-  if (!outcome) return fail(ticket, { kind: "no-review", reason: "The review run finished but no review comment from a trusted author was found." });
-  return { ...ticket, phase: "reviewed", outcome, reviews: ticket.reviews + 1 };
+  try {
+    const { judged } = await run(
+      ticket,
+      deps,
+      "review",
+      { prompt: `/software-factory:pr-review ${ticket.pr} --unattended`, cwd },
+      "review",
+    );
+    if (!judged.ok) return fail(ticket, judged);
+    const outcome = await deps.github.reviewOutcome(ticket.pr);
+    if (!outcome) return fail(ticket, { kind: "no-review", reason: "The review run finished but no review comment from a trusted author was found." });
+    return { ...ticket, phase: "reviewed", outcome, reviews: ticket.reviews + 1 };
+  } finally {
+    await deps.git.removeWorktree(deps.config.repo, cwd).catch(() => {});
+  }
 };
 
 export const answer = async (ticket, deps) => {

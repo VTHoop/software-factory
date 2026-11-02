@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The key a repo's .mcp.json uses for Linear, read from the named environment variable.
@@ -22,6 +22,7 @@ export const loadConfig = (file) => {
   config.entries.forEach((entry, i) => {
     if (!entry.repo) throw new Error(`config: entries[${i}].repo is required`);
     if (!entry.team) throw new Error(`config: entries[${i}].team is required`);
+    if (!entry.githubRepo) throw new Error(`config: entries[${i}].githubRepo is required`);
     if (entry.projects !== undefined && (!Array.isArray(entry.projects) || entry.projects.length === 0)) {
       throw new Error(`config: entries[${i}].projects, if given, must name at least one Linear project`);
     }
@@ -37,6 +38,7 @@ export const loadConfig = (file) => {
     ciTimeoutMs: 900_000,
     ciIntervalMs: 30_000,
     trustedAuthors: [],
+    previewAuthors: ["vercel"],
     ...config,
   };
 };
@@ -62,5 +64,3 @@ export const defaultPaths = (env = process.env) => {
     worktrees: join(state, "worktrees"),
   };
 };
-
-export const configExists = (file) => existsSync(file);

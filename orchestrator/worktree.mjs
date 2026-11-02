@@ -1,9 +1,8 @@
-import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
-import { promisify } from "node:util";
+import { exec } from "./exec.mjs";
 
-const git = (cwd, ...args) => promisify(execFile)("git", args, { cwd }).then((r) => r.stdout.trim());
+const git = (cwd, ...args) => exec("git", args, { cwd }).then((r) => r.stdout.trim());
 
 // Worktrees whose PR is merged or closed. An open, unknown or missing PR keeps its worktree.
 export const staleWorktrees = (tickets, prStates) =>
@@ -27,3 +26,25 @@ export const addReviewCheckout = async ({ repo, pr }, root) => {
 };
 
 export const removeWorktree = (repo, path) => git(repo, "worktree", "remove", "--force", path);
+
+export const pruneWorktrees = (repo) => git(repo, "worktree", "prune");
+
+// Removes the worktrees of merged or closed PRs. Returns the keys it removed; a worktree
+// that fails to go, or whose PR state can't be read, stays and is tried again next poll.
+export const cleanupWorktrees = async (tickets, { prState, remove }) => {
+  const states = {};
+  for (const t of tickets) {
+    if (!t.worktree || !t.pr) continue;
+    try {
+      states[t.pr] = await prState(t.pr, t);
+    } catch {}
+  }
+  const removed = [];
+  for (const t of staleWorktrees(tickets, states)) {
+    try {
+      await remove(t);
+      removed.push(t.key);
+    } catch {}
+  }
+  return removed;
+};
