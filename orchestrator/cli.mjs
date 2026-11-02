@@ -7,7 +7,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { signedIn } from "./checks.mjs";
 import { buildArgs, buildSettings, runClaude } from "./claude.mjs";
-import { defaultPaths, linearKeyFor, loadConfig, projectFor } from "./config.mjs";
+import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "./config.mjs";
 import { escalate } from "./escalate.mjs";
 import { createGithub } from "./github.mjs";
 import { handoff } from "./handoff.mjs";
@@ -24,9 +24,9 @@ const config = loadConfig(paths.config);
 const secrets = loadSecrets(paths.secrets);
 const send = (n) => notify(n, { secrets });
 
-const entryFor = (project) => {
-  const entry = projectFor(config, project);
-  if (!entry) throw new Error(`No config entry for Linear project ${project}`);
+const ownerOf = (ticket) => {
+  const entry = entryFor(config, ticket);
+  if (!entry) throw new Error(`No config entry for ${ticket.key} (team ${ticket.team}, project ${ticket.project})`);
   return entry;
 };
 
@@ -62,7 +62,7 @@ const preflight = async () => {
   if (!status.ok) throw new Error(status.message);
 };
 
-const forTicket = (ticket) => depsFor(entryFor(ticket.project));
+const forTicket = (ticket) => depsFor(ownerOf(ticket));
 const run = {
   implement: (t) => implement(t, forTicket(t)),
   review: (t) => review(t, forTicket(t)),
@@ -71,19 +71,22 @@ const run = {
   escalate: (t, reason, extra) => escalate(t, reason, forTicket(t), extra),
 };
 
-const projects = config.entries.flatMap((e) => e.projects);
-const lists = config.entries.map((e) => ({ project: e.projects, linear: createLinear(linearKeyFor(e.repo)) }));
+const clients = config.entries.map((entry) => ({ entry, linear: createLinear(linearKeyFor(entry.repo)) }));
+const listIssues = async () => {
+  const lists = await Promise.all(clients.map(({ entry, linear }) => linear.listIssues([entry])));
+  return [...new Map(lists.flat().map((issue) => [issue.key, issue])).values()];
+};
 
 try {
   const result = await poll({
     stateDir: paths.state,
     now: new Date(),
-    config: { projects },
+    config,
     deps: {
       preflight,
       notify: send,
       run,
-      linear: { listIssues: async (names) => (await Promise.all(lists.map((l) => l.linear.listIssues(names.filter((n) => l.project.includes(n)))))).flat() },
+      linear: { listIssues },
     },
   });
   console.log(JSON.stringify(result));
@@ -95,7 +98,7 @@ try {
     if (t.worktree && t.pr) states[t.pr] = await forTicket(t).github.prState(t.pr);
   }
   const stale = staleWorktrees(state.tickets, states);
-  for (const t of stale) await removeWorktree(entryFor(t.project).repo, t.worktree).catch(() => {});
+  for (const t of stale) await removeWorktree(ownerOf(t).repo, t.worktree).catch(() => {});
   if (stale.length) saveState(paths.state, { ...state, tickets: state.tickets.map((t) => (stale.includes(t) ? { ...t, worktree: undefined } : t)) });
 } catch (error) {
   console.error(error.message);

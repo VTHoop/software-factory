@@ -18,13 +18,20 @@ const required = (config, key) => {
 export const loadConfig = (file) => {
   const config = JSON.parse(readFileSync(file, "utf8"));
   for (const key of ["model", "maxTurns", "runTimeoutMs"]) required(config, key);
-  if (!Array.isArray(config.entries) || config.entries.length === 0) throw new Error("config: entries is required");
+  if (!Array.isArray(config.entries)) throw new Error("config: entries is required");
   config.entries.forEach((entry, i) => {
     if (!entry.repo) throw new Error(`config: entries[${i}].repo is required`);
-    if (!Array.isArray(entry.projects) || entry.projects.length === 0) {
-      throw new Error(`config: entries[${i}].projects must name at least one Linear project`);
+    if (!entry.team) throw new Error(`config: entries[${i}].team is required`);
+    if (entry.projects !== undefined && (!Array.isArray(entry.projects) || entry.projects.length === 0)) {
+      throw new Error(`config: entries[${i}].projects, if given, must name at least one Linear project`);
     }
   });
+  for (const team of new Set(config.entries.map((e) => e.team))) {
+    const sharing = config.entries.filter((e) => e.team === team);
+    if (sharing.length > 1 && sharing.some((e) => !e.projects)) {
+      throw new Error(`config: team ${team} has several entries, so each must name its projects`);
+    }
+  }
   return {
     base: "main",
     ciTimeoutMs: 900_000,
@@ -34,8 +41,15 @@ export const loadConfig = (file) => {
   };
 };
 
-export const projectFor = (config, project) =>
-  config.entries.find((entry) => entry.projects.includes(project)) ?? null;
+// The entry that owns an issue: one listing its project, else the team-wide one.
+export const entryFor = (config, { team, project }) => {
+  const ofTeam = config.entries.filter((entry) => entry.team === team);
+  return (
+    ofTeam.find((entry) => entry.projects?.includes(project)) ??
+    ofTeam.find((entry) => !entry.projects) ??
+    null
+  );
+};
 
 export const defaultPaths = (env = process.env) => {
   const home = env.HOME;

@@ -24,24 +24,25 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
     ).issue;
 
   return {
-    async listIssues(projects) {
+    async listIssues(entries) {
       const data = await query(
-        `query($projects: [String!]) {
-          issues(first: 100, filter: { state: { name: { eq: "Ready" } }, project: { name: { in: $projects } } }) {
+        `query($teams: [String!]) {
+          issues(first: 100, filter: { state: { name: { eq: "Ready" } }, team: { name: { in: $teams } } }) {
             nodes {
               identifier priority createdAt branchName url
-              state { name } project { name }
+              state { name } team { name } project { name }
               labels { nodes { name } }
               inverseRelations { nodes { type issue { identifier state { name } } } }
             }
           }
         }`,
-        { projects },
+        { teams: [...new Set(entries.map((e) => e.team))] },
       );
       return data.issues.nodes.map((n) => ({
         key: n.identifier,
         status: n.state.name,
-        project: n.project?.name,
+        team: n.team.name,
+        project: n.project?.name ?? null,
         priority: n.priority,
         createdAt: n.createdAt,
         gitBranchName: n.branchName,

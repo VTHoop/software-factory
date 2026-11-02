@@ -33,15 +33,16 @@ export const poll = async ({ stateDir, now, deps, config }) => {
       }
       ticket = recovery.ticket;
     } else {
-      if (isPaused(stateDir) || config.projects.length === 0 || !canStart(state.tickets)) {
+      if (isPaused(stateDir) || config.entries.length === 0 || !canStart(state.tickets)) {
         saveState(stateDir, state);
         return { acted: false, reason: "no new work allowed" };
       }
-      const issue = chooseIssue(await deps.linear.listIssues(config.projects), config);
+      const issue = chooseIssue(await deps.linear.listIssues(config.entries), config);
       if (!issue) return { acted: false, reason: "nothing eligible" };
       ticket = {
         key: issue.key,
         branch: issue.gitBranchName,
+        team: issue.team,
         project: issue.project,
         issueUrl: issue.url,
         phase: "claimed",

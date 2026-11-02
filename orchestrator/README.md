@@ -33,7 +33,7 @@ Everything the script needs lives outside this repo.
     {
       "repo": "/Users/you/dev/health-agent",
       "githubRepo": "VTHoop/disciplined-sidekick",
-      "projects": ["Health Agent"],
+      "team": "Health Agent",
       "extraDenials": ["Bash(supabase db push:*)"]
     }
   ]
@@ -60,7 +60,9 @@ An invocation that starts while another is running exits without acting. Stop th
 
 ## Add a project
 
-Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name`, and the Linear project names. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`. Tickets are picked from **Ready**, highest priority and then oldest first; one with `needs-owner` or an open blocker is skipped.
+Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`.
+
+If a team's tickets span repos, give each of that team's entries a `projects` list. An entry that lists an issue's project takes it; the script refuses a config where two entries share a team and one has no `projects`. Tickets are picked from **Ready**, highest priority and then oldest first; one with `needs-owner` or an open blocker is skipped.
 
 ## Follow a run
 
@@ -88,7 +90,7 @@ Create the pause file to stop new work. A run in progress carries on, and so doe
 touch ~/.local/state/software-factory/pause
 ```
 
-Delete it to carry on. Emptying `projects` in the config does the same. After a plan limit the script pauses itself until the limit resets and tells you when.
+Delete it to carry on. Emptying `entries` in the config does the same. After a plan limit the script pauses itself until the limit resets and tells you when.
 
 ## Development
 
