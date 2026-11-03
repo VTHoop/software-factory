@@ -1,6 +1,65 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cleanupWorktrees, staleWorktrees } from "../../orchestrator/worktree.mjs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { addReviewCheckout, addWorktree, cleanupWorktrees, staleWorktrees } from "../../orchestrator/worktree.mjs";
+import { tmp } from "./fakes.mjs";
+
+const git = (cwd, ...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, encoding: "utf8" }).trim();
+
+// A bare origin with one commit on main, and a clone of it.
+const repos = () => {
+  const base = tmp("sf-git-");
+  const origin = join(base, "origin.git");
+  const repo = join(base, "repo");
+  mkdirSync(origin);
+  git(origin, "init", "-q", "--bare", "-b", "main");
+  git(base, "clone", "-q", origin, repo);
+  writeFileSync(join(repo, "a.txt"), "a");
+  git(repo, "add", ".");
+  git(repo, "commit", "-q", "-m", "init");
+  git(repo, "push", "-q", "origin", "HEAD:main");
+  return { base, origin, repo, root: join(base, "worktrees") };
+};
+
+describe("addWorktree", () => {
+  it("creates a detached worktree at the base", async () => {
+    const { repo, root } = repos();
+    const path = await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root);
+    assert.equal(git(path, "rev-parse", "HEAD"), git(repo, "rev-parse", "origin/main"));
+  });
+
+  it("replaces a worktree left at the same path by an earlier attempt", async () => {
+    const { repo, root } = repos();
+    const first = await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root);
+    writeFileSync(join(first, "leftover.txt"), "x");
+    const second = await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root);
+    assert.equal(second, first);
+    assert.ok(!existsSync(join(second, "leftover.txt")));
+  });
+
+  it("replaces a directory that git no longer lists as a worktree", async () => {
+    const { repo, root } = repos();
+    const path = await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root);
+    git(repo, "worktree", "remove", "--force", path);
+    mkdirSync(path);
+    writeFileSync(join(path, "stray.txt"), "x");
+    assert.equal(await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root), path);
+    assert.ok(!existsSync(join(path, "stray.txt")));
+  });
+});
+
+describe("addReviewCheckout", () => {
+  it("checks out the PR head from a named ref, which another fetch cannot move", async () => {
+    const { origin, repo, root } = repos();
+    const sha = git(repo, "rev-parse", "HEAD");
+    git(origin, "update-ref", "refs/pull/1/head", sha);
+    const path = await addReviewCheckout({ repo, pr: 1 }, root);
+    assert.equal(git(path, "rev-parse", "HEAD"), sha);
+    assert.equal(git(repo, "rev-parse", "refs/factory/pr-1"), sha);
+  });
+});
 
 const tickets = [
   { key: "HEA-1", pr: 1, worktree: "/wt/1" },

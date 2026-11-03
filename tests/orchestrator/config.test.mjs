@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "../../orchestrator/config.mjs";
 import { root } from "../lib.mjs";
+import { tmp as scratch } from "./fakes.mjs";
 
-const tmp = () => mkdtempSync(join(tmpdir(), "sf-config-"));
+const tmp = () => scratch("sf-config-");
 
 const repoWithMcp = (envName) => {
   const repo = tmp();
@@ -112,5 +112,36 @@ describe("defaultPaths", () => {
       assert.ok(!p.startsWith(root), `${p} is inside the repo`);
     }
     assert.match(paths.secrets, /\.config\/software-factory\/secrets\.env$/);
+  });
+});
+
+describe("loadConfig defaults", () => {
+  const write = (extra = {}) => {
+    const dir = tmp();
+    const file = join(dir, "config.json");
+    writeFileSync(
+      file,
+      JSON.stringify({
+        model: "sonnet",
+        maxTurns: 80,
+        runTimeoutMs: 1000,
+        entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }],
+        ...extra,
+      }),
+    );
+    return file;
+  };
+
+  it("fills in the base branch, CI timing, preview authors and trusted authors", () => {
+    const config = loadConfig(write());
+    assert.equal(config.base, "main");
+    assert.equal(config.ciTimeoutMs, 900_000);
+    assert.equal(config.ciIntervalMs, 30_000);
+    assert.deepEqual(config.previewAuthors, ["vercel"]);
+    assert.deepEqual(config.trustedAuthors, []);
+  });
+
+  it("keeps a value the file sets", () => {
+    assert.equal(loadConfig(write({ base: "develop" })).base, "develop");
   });
 });

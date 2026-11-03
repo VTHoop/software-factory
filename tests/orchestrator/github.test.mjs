@@ -94,14 +94,40 @@ describe("github", () => {
     assert.match(await gh({ "pr view": { comments } }).github.response(7), /second/);
   });
 
-  describe("ciState", () => {
+  describe("github reads and writes", () => {
+  it("posts a PR comment from stdin", async () => {
+    const { github, calls } = gh({ "pr comment": "" });
+    await github.comment(7, "hello");
+    assert.deepEqual(calls[0].args.slice(2, 6), ["pr", "comment", "7", "--body-file"]);
+    assert.equal(calls[0].opts.input, "hello");
+  });
+
+  it("reads the head commit of a PR", async () => {
+    const { github } = gh({ "pr view": { headRefOid: "abc123" } });
+    assert.equal(await github.headSha(7), "abc123");
+  });
+
+  it("reads the state of a PR", async () => {
+    const { github } = gh({ "pr view": { state: "MERGED" } });
+    assert.equal(await github.prState(7), "MERGED");
+  });
+});
+
+describe("ciState", () => {
     const runs = (...r) => ({ check_runs: r });
-    const state = (r) => gh({ "check-runs": r }).github.ciState("abc");
+    const state = (r) => gh({ "check-runs": [r] }).github.ciState("abc");
 
     it("names the repo in the endpoint, because `gh api` has no -R flag", async () => {
-      const { github, calls } = gh({ "check-runs": runs() });
+      const { github, calls } = gh({ "check-runs": [runs()] });
       await github.ciState("abc");
-      assert.deepEqual(calls[0].args, ["api", "repos/VTHoop/disciplined-sidekick/commits/abc/check-runs"]);
+      assert.equal(calls[0].args[0], "api");
+      assert.ok(calls[0].args.includes("repos/VTHoop/disciplined-sidekick/commits/abc/check-runs?per_page=100"));
+    });
+
+    it("reads every page of check runs", async () => {
+      const { github, calls } = gh({ "check-runs": [runs({ status: "completed", conclusion: "success" }), runs({ status: "in_progress" })] });
+      assert.equal(await github.ciState("abc"), "pending");
+      assert.ok(calls[0].args.includes("--paginate") && calls[0].args.includes("--slurp"));
     });
 
     it("is none when the commit has no checks", async () => assert.equal(await state(runs()), "none"));

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { poll } from "../../orchestrator/poll.mjs";
 import { loadState, saveState } from "../../orchestrator/state.mjs";
+import { tmp } from "./fakes.mjs";
 
 const now = new Date("2026-11-02T20:00:00Z");
 const ready = {
@@ -20,7 +20,7 @@ const ready = {
 };
 
 const setup = ({ issues = [], tickets = [], config = {}, pausedUntil = null } = {}) => {
-  const stateDir = mkdtempSync(join(tmpdir(), "sf-poll-"));
+  const stateDir = tmp("sf-poll-");
   saveState(stateDir, { tickets, pausedUntil });
   const calls = [];
   const step = (name) => async (t) => (calls.push([name, t.key]), { ...t, phase: "implemented" });

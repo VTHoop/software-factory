@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { acquireLock, isPaused, loadState, recover, saveState } from "../../orchestrator/state.mjs";
+import { acquireLock, isPaused, loadState, recover, releaseLock, saveState } from "../../orchestrator/state.mjs";
+import { tmp } from "./fakes.mjs";
 
-const dir = () => mkdtempSync(join(tmpdir(), "sf-state-"));
+const dir = () => tmp("sf-state-");
 
 describe("state on disk", () => {
   it("starts empty", () => {
@@ -40,6 +40,37 @@ describe("lock", () => {
     const d = dir();
     writeFileSync(join(d, "lock"), "999999999");
     assert.equal(typeof acquireLock(d), "function");
+  });
+});
+
+describe("lock ownership", () => {
+  it("does not remove a lock that another live process now holds", () => {
+    const d = dir();
+    const release = acquireLock(d);
+    writeFileSync(join(d, "lock"), String(process.ppid));
+    release();
+    assert.ok(existsSync(join(d, "lock")));
+  });
+
+  it("treats a lock file with no readable PID, just written, as held", () => {
+    const d = dir();
+    writeFileSync(join(d, "lock"), "");
+    assert.equal(acquireLock(d), null);
+  });
+
+  it("takes over an unreadable lock file once it is old", () => {
+    const d = dir();
+    writeFileSync(join(d, "lock"), "");
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(join(d, "lock"), old, old);
+    assert.equal(typeof acquireLock(d), "function");
+  });
+
+  it("releaseLock removes this process's lock, for a signal handler to call", () => {
+    const d = dir();
+    acquireLock(d);
+    releaseLock(d);
+    assert.ok(!existsSync(join(d, "lock")));
   });
 });
 

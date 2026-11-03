@@ -84,6 +84,33 @@ describe("createLinear", () => {
   });
 });
 
+describe("createLinear paging and errors", () => {
+  it("reads every page of Ready issues, not just the first 100", async () => {
+    const pages = [
+      { nodes: [node({ identifier: "HEA-1" })], pageInfo: { hasNextPage: true, endCursor: "c1" } },
+      { nodes: [node({ identifier: "HEA-2" })], pageInfo: { hasNextPage: false, endCursor: null } },
+    ];
+    const { fetch, requests } = fakeFetch({ "issues(": (v) => ({ issues: pages[v.after ? 1 : 0] }) });
+    const issues = await createLinear("k", fetch).listIssues([{ team: "T" }]);
+    assert.deepEqual(issues.map((i) => i.key), ["HEA-1", "HEA-2"]);
+    assert.equal(requests[1].variables.after, "c1");
+  });
+
+  it("throws on an HTTP error without echoing the key", async () => {
+    const fetch = async () => ({ ok: false, status: 401, json: async () => ({}) });
+    await assert.rejects(createLinear("secret-key", fetch).listIssues([{ team: "T" }]), (e) => {
+      assert.match(e.message, /401/);
+      assert.ok(!e.message.includes("secret-key"));
+      return true;
+    });
+  });
+
+  it("throws on a GraphQL error", async () => {
+    const fetch = async () => ({ ok: true, json: async () => ({ errors: [{ message: "bad filter" }] }) });
+    await assert.rejects(createLinear("k", fetch).listIssues([{ team: "T" }]), /bad filter/);
+  });
+});
+
 describe("collectIssues", () => {
   it("asks each entry's Linear client and drops duplicates by key", async () => {
     const make = (...keys) => ({ listIssues: async () => keys.map((key) => ({ key })) });

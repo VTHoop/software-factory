@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { appendLog, runRecord } from "../../orchestrator/log.mjs";
-import { reviewOutput } from "./fakes.mjs";
+import { reviewOutput, tmp } from "./fakes.mjs";
 
 describe("runRecord", () => {
   it("records estimated usage, duration, turns and subagent counts", () => {
@@ -38,7 +37,7 @@ describe("runRecord", () => {
 
 describe("appendLog", () => {
   it("appends one JSON line per run", () => {
-    const file = join(mkdtempSync(join(tmpdir(), "sf-log-")), "runs.jsonl");
+    const file = join(tmp("sf-log-"), "runs.jsonl");
     appendLog(file, { key: "HEA-1" });
     appendLog(file, { key: "HEA-2" });
     const lines = readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l));

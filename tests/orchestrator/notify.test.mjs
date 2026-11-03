@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadSecrets, notify } from "../../orchestrator/notify.mjs";
+import { tmp } from "./fakes.mjs";
 
 const secrets = { PUSHOVER_USER_KEY: "u-key", PUSHOVER_APP_TOKEN: "a-token" };
 
@@ -45,9 +45,23 @@ describe("notify", () => {
   });
 });
 
+describe("notify guards", () => {
+  it("cuts a long message to the Pushover limit", async () => {
+    let body;
+    const fetch = async (url, init) => ((body = new URLSearchParams(init.body)), { ok: true });
+    await notify({ kind: "pause", title: "t", message: "x".repeat(5000) }, { secrets, fetch });
+    assert.ok(body.get("message").length <= 1024);
+  });
+
+  it("says which secret is missing instead of sending the word undefined", async () => {
+    const fetch = async () => assert.fail("sent");
+    await assert.rejects(notify({ kind: "pause", title: "t", message: "m" }, { secrets: {}, fetch }), /PUSHOVER_APP_TOKEN/);
+  });
+});
+
 describe("loadSecrets", () => {
   it("reads NAME=value lines, with comments, export and quotes", () => {
-    const file = join(mkdtempSync(join(tmpdir(), "sf-secrets-")), "secrets.env");
+    const file = join(tmp("sf-secrets-"), "secrets.env");
     const [user, app] = ["PUSHOVER_USER_KEY", "PUSHOVER_APP_TOKEN"];
     writeFileSync(file, `# comment\nexport ${user}="u-key"\n${app}=a-token # note\n`);
     assert.deepEqual(loadSecrets(file), { PUSHOVER_USER_KEY: "u-key", PUSHOVER_APP_TOKEN: "a-token" });

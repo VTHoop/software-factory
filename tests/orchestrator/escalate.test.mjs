@@ -77,4 +77,11 @@ describe("escalate", () => {
     assert.equal(result.phase, "escalated");
     assert.match(result.notifyError, /Pushover/);
   });
+
+  it("redacts secrets in the reason before it reaches Linear, the PR or Pushover", async () => {
+    const { calls, deps } = make();
+    const token = "ghp_" + "a".repeat(24);
+    await escalate({ key: "HEA-1", pr: 7 }, `run failed: GH_TOKEN=${token}`, deps);
+    for (const call of calls) assert.ok(!JSON.stringify(call).includes(token), call[0]);
+  });
 });

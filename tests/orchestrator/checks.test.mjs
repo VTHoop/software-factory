@@ -158,3 +158,31 @@ describe("redact", () => {
     assert.ok(!judgeRun(out, opts).reason.includes(fake.github));
   });
 });
+
+describe("redact patterns", () => {
+  it("masks a lowercase token= argument", () => {
+    assert.ok(!redact("curl https://x?token=abcdef123456").includes("abcdef123456"));
+  });
+  it("masks a fine-grained GitHub token", () => {
+    const token = "github_pat_" + "A1b2C3d4E5".repeat(4);
+    assert.ok(!redact(`gh auth login --with-token ${token}`).includes(token));
+  });
+  it("masks a JWT", () => {
+    const jwt = ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjM0NTYifQ", "c2lnbmF0dXJlMTIzNDU2"].join(".");
+    assert.ok(!redact(`curl -H "x: ${jwt}"`).includes(jwt));
+  });
+});
+
+describe("parseLimit guards", () => {
+  const now = new Date("2026-11-02T20:00:00Z");
+
+  it("ignores limit text in a run that did not end in an error", () => {
+    const r = parseLimit(output({ is_error: false, result: "usage limit reached|9999999999" }), { now });
+    assert.equal(r, null);
+  });
+
+  it("caps a reset time far in the future", () => {
+    const r = parseLimit(output({ is_error: true, result: "usage limit reached|9999999999" }), { now });
+    assert.ok(r.resetAt.getTime() - now.getTime() <= 7 * 24 * 3_600_000);
+  });
+});

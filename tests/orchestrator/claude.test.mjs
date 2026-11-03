@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildArgs, buildSettings, runClaude } from "../../orchestrator/claude.mjs";
+import { buildArgs, buildSettings, killRunning, runClaude, settingsFile } from "../../orchestrator/claude.mjs";
 
 const project = { extraDenials: ["Bash(supabase db push:*)"] };
 
@@ -83,6 +83,18 @@ describe("buildSettings", () => {
     assert.ok(denies(/>.*\.github/));
   });
 
+  it("denies pushing the base branch with -u, a full ref, HEAD --force, or git -C", () => {
+    assert.ok(denies(/git push\* origin main\)/));
+    assert.ok(denies(/git push\*refs\/heads\/main\)/));
+    assert.ok(denies(/git push\*--force/));
+    assert.ok(denies(/git -C \* push/));
+  });
+
+  it("denies reading the factory's secrets", () => {
+    assert.ok(denies(/^Read\(.*software-factory/));
+    assert.ok(denies(/secrets\.env/));
+  });
+
   it("adds the project's extra denials", () => {
     assert.ok(permissions.deny.includes("Bash(supabase db push:*)"));
   });
@@ -125,5 +137,50 @@ describe("runClaude", () => {
     const r = await runClaude({ bin: node, args: ["-e", "console.log('nope')"], timeoutMs: 5000 });
     assert.equal(r.output, null);
     assert.match(r.error, /JSON/i);
+  });
+});
+
+describe("settingsFile", () => {
+  it("is different for two repos that share a long path prefix", () => {
+    const a = settingsFile("/state", "/Users/vthoop/dev/health-agent");
+    const b = settingsFile("/state", "/Users/vthoop/dev/software-factory");
+    assert.notEqual(a, b);
+  });
+
+  it("is the same for the same repo", () => {
+    assert.equal(settingsFile("/state", "/r/x"), settingsFile("/state", "/r/x"));
+  });
+});
+
+describe("runClaude process handling", () => {
+  const node = process.execPath;
+
+  it("killRunning ends a run in progress, as a SIGINT or SIGTERM handler would", async () => {
+    const pending = runClaude({ bin: node, args: ["-e", "setTimeout(()=>{},30000)"], timeoutMs: 30_000 });
+    await new Promise((r) => setTimeout(r, 300));
+    const started = Date.now();
+    killRunning();
+    await pending;
+    assert.ok(Date.now() - started < 3000, "the run was still alive");
+  });
+
+  it("keeps multi-byte characters whole when a chunk boundary falls inside one", async () => {
+    const script = 'const s=JSON.stringify({result:"\u20ac".repeat(200000)});process.stdout.write(s)';
+    const r = await runClaude({ bin: node, args: ["-e", script], timeoutMs: 10_000 });
+    assert.equal(r.output.result.length, 200000);
+    assert.ok(!r.output.result.includes("\ufffd"));
+  });
+
+  it("does not take the phrase in a successful result for a failed resume", async () => {
+    const script = 'console.log(JSON.stringify({session_id:"s",is_error:false,result:"the log said: No conversation found"}))';
+    const r = await runClaude({ bin: node, args: ["-e", script], timeoutMs: 5000 });
+    assert.equal(r.resumeFailed, undefined);
+    assert.equal(r.output.session_id, "s");
+  });
+
+  it("reports a failed resume when the CLI says no conversation was found", async () => {
+    const script = 'console.error("No conversation found with session ID: x");process.exit(1)';
+    const r = await runClaude({ bin: node, args: ["-e", script], timeoutMs: 5000 });
+    assert.equal(r.resumeFailed, true);
   });
 });

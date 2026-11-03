@@ -1,4 +1,16 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { REVIEWERS as NAMES } from "../../orchestrator/checks.mjs";
+
+// A scratch directory that is removed when the test run ends.
+const scratch = [];
+process.on("exit", () => scratch.forEach((d) => rmSync(d, { recursive: true, force: true })));
+export const tmp = (prefix = "sf-") => {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  scratch.push(dir);
+  return dir;
+};
 
 export const REVIEWERS = NAMES.map((n) => `software-factory:sdlc-review-${n}`);
 

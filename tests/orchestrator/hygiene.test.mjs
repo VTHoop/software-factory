@@ -9,7 +9,7 @@ const files = (dir) =>
     .filter((f) => /\.(mjs|json|md)$/.test(f))
     .map((f) => [`${dir}/${f}`, readFileSync(join(root, dir, f), "utf8")]);
 
-describe("the repo holds no secrets", () => {
+describe("the orchestrator holds no tokens", () => {
   const all = [...files("orchestrator"), ...files("tests/orchestrator")];
 
   it("has script files to check", () => {
@@ -20,7 +20,8 @@ describe("the repo holds no secrets", () => {
     for (const [name, text] of all) {
       assert.doesNotMatch(text, /lin_api_[A-Za-z0-9]{10,}/, name);
       assert.doesNotMatch(text, /sk-ant-[A-Za-z0-9_-]{10,}/, name);
-      assert.doesNotMatch(text, /gh[ps]_[A-Za-z0-9]{20,}/, name);
+      assert.doesNotMatch(text, /gh[pousr]_[A-Za-z0-9]{20,}/, name);
+      assert.doesNotMatch(text, /github_pat_[A-Za-z0-9_]{20,}/, name);
       assert.doesNotMatch(text, /PUSHOVER_(USER_KEY|APP_TOKEN)\s*=\s*\S+/, name);
     }
   });
