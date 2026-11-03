@@ -39,11 +39,14 @@ export const deniedCommands = (output) =>
     redact(d.tool_input?.command ?? d.tool_input?.file_path ?? d.tool_name),
   );
 
+// `by_type` only counts spawns per agent type; finishing is known from the totals beside it.
 const reviewersMissing = (output) => {
-  const byType = output.subagent_stats?.by_type ?? {};
+  const stats = output.subagent_stats ?? {};
+  const byType = stats.by_type ?? {};
+  const allFinished = (stats.failed ?? 0) === 0 && (stats.completed ?? 0) >= (stats.spawned ?? 0);
   return REVIEWERS.filter((name) => {
-    const entry = Object.entries(byType).find(([type]) => type.endsWith(`sdlc-review-${name}`))?.[1];
-    return !(entry && entry.spawned >= 1 && entry.completed >= 1);
+    const spawned = Object.entries(byType).find(([type]) => type.endsWith(`sdlc-review-${name}`))?.[1];
+    return !(spawned >= 1 && allFinished);
   });
 };
 
