@@ -4,8 +4,9 @@ export const REVIEWERS = NAMES.map((n) => `software-factory:sdlc-review-${n}`);
 
 export const finished = '\nSOFTWARE_FACTORY_RESULT: {"status":"finished"}';
 
-export const byType = (types = REVIEWERS, over = {}) =>
-  Object.fromEntries(types.map((t) => [t, { spawned: 1, completed: 1, failed: 0, ...over }]));
+// `by_type` maps an agent type to how many were spawned; completions and failures
+// are only counted in the totals beside it.
+export const byType = (types = REVIEWERS, count = 1) => Object.fromEntries(types.map((t) => [t, count]));
 
 // The JSON `claude -p --output-format json` prints when a run ends.
 export const output = (over = {}) => ({

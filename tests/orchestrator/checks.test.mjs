@@ -80,20 +80,26 @@ describe("judgeRun for a review", () => {
   });
 
   it("fails when a reviewer started but did not finish", () => {
-    const stats = { by_type: { ...byType(), [REVIEWERS[0]]: { spawned: 1, completed: 0, failed: 1 } } };
+    const stats = { spawned: 6, completed: 5, failed: 1, by_type: byType() };
+    assert.equal(judgeRun(output({ subagent_stats: stats }), review).kind, "reviewers");
+  });
+
+  it("fails when fewer reviewers finished than started", () => {
+    const stats = { spawned: 6, completed: 4, failed: 0, by_type: byType() };
     assert.equal(judgeRun(output({ subagent_stats: stats }), review).kind, "reviewers");
   });
 
   it("counts distinct reviewers, so respawns of one reviewer do not inflate the count", () => {
     const five = REVIEWERS.slice(0, 5);
-    const stats = { by_type: { ...byType(five), [five[0]]: { spawned: 2, completed: 2, failed: 0 } } };
+    const stats = { spawned: 6, completed: 6, failed: 0, by_type: { ...byType(five), [five[0]]: 2 } };
     const r = judgeRun(output({ subagent_stats: stats }), review);
     assert.equal(r.kind, "reviewers");
     assert.match(r.reason, /5 of 6/);
   });
 
   it("names the reviewers that are missing", () => {
-    const r = judgeRun(output({ subagent_stats: { by_type: byType(REVIEWERS.slice(1)) } }), review);
+    const stats = { spawned: 5, completed: 5, failed: 0, by_type: byType(REVIEWERS.slice(1)) };
+    const r = judgeRun(output({ subagent_stats: stats }), review);
     assert.match(r.reason, /sdlc-review-impact/);
   });
 });
