@@ -6,8 +6,8 @@ For a ticket it:
 
 1. moves the issue to **In Progress**, then runs `/software-factory:start-ticket <key> --unattended` in a new worktree;
 2. runs `/software-factory:pr-review <n> --unattended` in a new session and its own checkout, and counts the review only if all six `sdlc-review-*` agents started and finished;
-3. on **Needs Revision** or **Blocked**, resumes the implementer session with `/software-factory:address-review <n> --unattended` (a fresh session if it can't be resumed), then reviews once more, at most two reviews in all;
-4. on **Approved**, waits for CI on the head commit and sends a handoff notification, then moves the issue to **In Review**.
+3. resumes the implementer session with `/software-factory:address-review <n> --unattended` (a fresh session if it can’t be resumed) after the first review whatever its outcome, because an Approved review can still carry findings. A review that was not Approved gets one more review, at most two reviews in all; an Approved one goes straight to the handoff;
+4. waits for CI on the head commit and sends a handoff notification, then moves the issue to **In Review**.
 
 A failed run, a skill that stopped, any permission denial, a second review that still isn't Approved, or a time or turn limit is an escalation: a comment on the issue and the PR, the `needs-owner` label, a move back to Todo if there is no PR yet, and a notification. Hitting a plan limit is a pause, not an escalation.
 

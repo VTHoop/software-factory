@@ -8,8 +8,9 @@ export const nextAction = (ticket) => {
     case "implemented":
       return { type: "review", pr: ticket.pr };
     case "reviewed":
-      if (ticket.outcome === "Approved") return { type: "handoff" };
+      // An Approved review can still carry findings, so the first review is always answered.
       if (ticket.reviews >= MAX_REVIEWS) {
+        if (ticket.outcome === "Approved") return { type: "handoff" };
         return {
           type: "escalate",
           reason: `Review ${ticket.reviews} of ${MAX_REVIEWS} was still ${ticket.outcome}; no further address-review runs.`,
@@ -17,6 +18,7 @@ export const nextAction = (ticket) => {
       }
       return { type: "answer", pr: ticket.pr, resume: ticket.sessionId };
     case "answered":
+      if (ticket.outcome === "Approved") return { type: "handoff" };
       if (ticket.reviews >= MAX_REVIEWS) {
         return { type: "escalate", reason: "Both reviews are used and the last response has no re-review." };
       }
