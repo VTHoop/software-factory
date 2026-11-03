@@ -183,4 +183,26 @@ describe("poll", () => {
     deps.cleanup = async () => assert.fail("cleaned up outside the lock");
     await poll(ctx);
   });
+
+  it("passes the ticket to the preflight, so it can check what that ticket's repo needs", async () => {
+    const seen = [];
+    const { ctx, deps } = setup({ issues: [ready] });
+    deps.preflight = async (ticket) => void seen.push(ticket.key);
+    await poll({ ...ctx, deps });
+    assert.deepEqual(seen, ["HEA-5"]);
+  });
+
+  it("leaves the ticket untouched, escalates nothing and frees the lock when the preflight fails", async () => {
+    const { ctx, deps, stateDir } = setup({ issues: [ready] });
+    deps.preflight = async () => {
+      throw new Error("Docker is not ready");
+    };
+    await assert.rejects(poll({ ...ctx, deps }), /Docker is not ready/);
+    assert.deepEqual(deps.calls, []);
+    assert.deepEqual(loadState(stateDir).tickets, []);
+    assert.equal(existsSync(join(stateDir, "lock")), false);
+    deps.preflight = async () => {};
+    await poll({ ...ctx, deps });
+    assert.deepEqual(deps.calls, [["implement", "HEA-5"]]);
+  });
 });

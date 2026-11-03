@@ -57,6 +57,16 @@ describe("orchestrator README", () => {
     assert.match(section(), /guardrail/i);
     assert.match(section(), /branch protection/i);
   });
+  it("documents the per-repo needsDocker setting", () => assert.match(section(), /needsDocker/));
+  it("says the agent's GitHub account must be a collaborator on a new repo", () => {
+    assert.match(section(), /collaborator/i);
+  });
+  it("explains how to follow a live run from another machine", () => {
+    assert.match(section(), /follow a live run/i);
+    assert.match(section(), /ssh /);
+    assert.match(section(), /tail -f/);
+  });
+  it("says the log records the Claude Code version", () => assert.match(section(), /claudeVersion/));
   it("is linked from the main README", () => {
     assert.match(read("README.md"), /orchestrator\/README\.md/);
   });

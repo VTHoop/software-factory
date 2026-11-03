@@ -26,6 +26,11 @@ describe("runRecord", () => {
     assert.ok(Math.abs(r.costUsd - 0.08) < 1e-9);
   });
 
+  it("records the Claude Code version the run used", () => {
+    const r = runRecord(reviewOutput(), { key: "HEA-1", step: "review", claudeVersion: "2.1.316" });
+    assert.equal(r.claudeVersion, "2.1.316");
+  });
+
   it("lists the denied commands", () => {
     const r = runRecord(
       reviewOutput({ permission_denials: [{ tool_name: "Bash", tool_input: { command: "gh pr merge 7" } }] }),
