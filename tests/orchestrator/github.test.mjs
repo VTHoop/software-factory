@@ -98,6 +98,12 @@ describe("github", () => {
     const runs = (...r) => ({ check_runs: r });
     const state = (r) => gh({ "check-runs": r }).github.ciState("abc");
 
+    it("names the repo in the endpoint, because `gh api` has no -R flag", async () => {
+      const { github, calls } = gh({ "check-runs": runs() });
+      await github.ciState("abc");
+      assert.deepEqual(calls[0].args, ["api", "repos/VTHoop/disciplined-sidekick/commits/abc/check-runs"]);
+    });
+
     it("is none when the commit has no checks", async () => assert.equal(await state(runs()), "none"));
     it("is pending while any check is running", async () => {
       assert.equal(await state(runs({ status: "completed", conclusion: "success" }, { status: "in_progress" })), "pending");
