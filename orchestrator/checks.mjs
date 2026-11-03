@@ -10,6 +10,17 @@ export const signedIn = (statusJson) => {
   };
 };
 
+// `docker info` fails until the daemon is up, as it is for a while after a reboot. The poll
+// that sees this fails before it touches a ticket, so the next one tries again.
+export const dockerReady = async (run) => {
+  try {
+    await run();
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Docker is not ready yet. The next poll will try again." };
+  }
+};
+
 const resultLine = (text) => {
   const lines = String(text ?? "").split("\n").filter((l) => l.startsWith("SOFTWARE_FACTORY_RESULT: "));
   const last = lines.at(-1);

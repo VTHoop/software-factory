@@ -2,8 +2,9 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { deniedCommands } from "./checks.mjs";
 
-export const runRecord = (output, { key, step, at, priorCostUsd = 0 }) => ({
+export const runRecord = (output, { key, step, at, priorCostUsd = 0, claudeVersion }) => ({
   at,
+  claudeVersion,
   key,
   step,
   sessionId: output.session_id,
