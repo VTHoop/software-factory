@@ -67,7 +67,7 @@ describe("nextAction", () => {
     assert.match(action.reason, /permission denied/);
   });
 
-  it("waits on a ticket whose run is in progress", () => {
-    assert.deepEqual(nextAction(ticket({ phase: "reviewing" })), { type: "wait" });
+  it("waits on a ticket that is already handed off", () => {
+    assert.deepEqual(nextAction(ticket({ phase: "handed-off" })), { type: "wait" });
   });
 });

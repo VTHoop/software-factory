@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { describe, it } from "node:test";
 import { loadSecrets, notify } from "../../orchestrator/notify.mjs";
 import { tmp } from "./fakes.mjs";
 

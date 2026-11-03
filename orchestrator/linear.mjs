@@ -1,5 +1,6 @@
 const ENDPOINT = "https://api.linear.app/graphql";
 const TIMEOUT_MS = 30_000;
+const MAX_PAGES = 20;
 
 // Reads and writes Linear directly, with no model, using a personal API key.
 export const createLinear = (key, fetch = globalThis.fetch) => {
@@ -33,20 +34,29 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
 
   return {
     async listIssues(entries) {
-      const data = await query(
-        `query($teams: [String!]) {
-          issues(first: 100, filter: { state: { name: { eq: "Ready" } }, team: { name: { in: $teams } } }) {
-            nodes {
-              identifier priority createdAt branchName url
-              state { name } team { name } project { name }
-              labels { nodes { name } }
-              inverseRelations { nodes { type issue { identifier state { name } } } }
+      const teams = [...new Set(entries.map((e) => e.team))];
+      const nodes = [];
+      let after = null;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const { issues } = await query(
+          `query($teams: [String!], $after: String) {
+            issues(first: 100, after: $after, orderBy: createdAt, filter: { state: { name: { eq: "Ready" } }, team: { name: { in: $teams } } }) {
+              nodes {
+                identifier priority createdAt branchName url
+                state { name } team { name } project { name }
+                labels { nodes { name } }
+                inverseRelations { nodes { type issue { identifier state { name } } } }
+              }
+              pageInfo { hasNextPage endCursor }
             }
-          }
-        }`,
-        { teams: [...new Set(entries.map((e) => e.team))] },
-      );
-      return data.issues.nodes.map((n) => ({
+          }`,
+          { teams, after },
+        );
+        nodes.push(...issues.nodes);
+        if (!issues.pageInfo?.hasNextPage) break;
+        after = issues.pageInfo.endCursor;
+      }
+      return nodes.map((n) => ({
         key: n.identifier,
         status: n.state.name,
         team: n.team.name,

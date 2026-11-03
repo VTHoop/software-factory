@@ -63,7 +63,7 @@ A stopped skill posts no escalation comment or label: the script that started it
 
 ## Running it unattended
 
-The [orchestrator](orchestrator/README.md) polls Linear and GitHub and drives these skills headless. See [orchestrator/README.md](orchestrator/README.md).
+The [orchestrator](orchestrator/README.md) polls Linear and GitHub and drives these skills headless. It needs Node.js 24.
 
 ## Development
 

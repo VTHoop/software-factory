@@ -9,6 +9,9 @@ export const loadSecrets = (file) => parseEnv(readFileSync(file, "utf8"));
 
 // Handoffs, escalations and pauses all go out through here.
 export const notify = async ({ title, message, url }, { secrets, fetch = globalThis.fetch }) => {
+  for (const name of ["PUSHOVER_APP_TOKEN", "PUSHOVER_USER_KEY"]) {
+    if (!secrets[name]) throw new Error(`${name} is missing from the secrets file`);
+  }
   const body = new URLSearchParams({
     token: secrets.PUSHOVER_APP_TOKEN,
     user: secrets.PUSHOVER_USER_KEY,

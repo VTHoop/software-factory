@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { exec } from "./exec.mjs";
 
@@ -13,6 +13,10 @@ export const addWorktree = async ({ repo, branch, base }, root) => {
   await git(repo, "fetch", "origin");
   mkdirSync(root, { recursive: true });
   const path = join(root, `${basename(repo)}-${branch.replaceAll("/", "_")}`);
+  // An earlier attempt may have left this path behind, listed by git or not.
+  await git(repo, "worktree", "remove", "--force", path).catch(() => {});
+  rmSync(path, { recursive: true, force: true });
+  await git(repo, "worktree", "prune");
   await git(repo, "worktree", "add", "--detach", path, `origin/${base}`);
   return path;
 };
@@ -20,8 +24,10 @@ export const addWorktree = async ({ repo, branch, base }, root) => {
 export const addReviewCheckout = async ({ repo, pr }, root) => {
   mkdirSync(root, { recursive: true });
   const path = join(root, `${basename(repo)}-review-pr-${pr}-${Date.now()}`);
-  await git(repo, "fetch", "origin", `pull/${pr}/head`);
-  await git(repo, "worktree", "add", "--detach", path, "FETCH_HEAD");
+  // Into a named ref, because FETCH_HEAD moves with the next fetch in the repo.
+  const ref = `refs/factory/pr-${pr}`;
+  await git(repo, "fetch", "origin", `+pull/${pr}/head:${ref}`);
+  await git(repo, "worktree", "add", "--detach", path, ref);
   return path;
 };
 

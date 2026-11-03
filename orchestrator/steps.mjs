@@ -45,13 +45,21 @@ export const implement = async (ticket, deps) => {
     branch: ticket.branch,
     base: deps.config.base,
   });
-  const { output, judged } = await run(
-    ticket,
-    deps,
-    "implement",
-    { prompt: `/software-factory:start-ticket ${ticket.key} --unattended`, cwd: worktree },
-    "implement",
-  );
+  let result;
+  try {
+    result = await run(
+      ticket,
+      deps,
+      "implement",
+      { prompt: `/software-factory:start-ticket ${ticket.key} --unattended`, cwd: worktree },
+      "implement",
+    );
+  } catch (error) {
+    // The state does not know this worktree yet, so a retry would collide with it.
+    await deps.git.removeWorktree(deps.config.repo, worktree).catch(() => {});
+    throw error;
+  }
+  const { output, judged } = result;
   if (!judged.ok) return fail(ticket, judged, { worktree, sessionId: output?.session_id });
   const pr = await deps.github.findPr(ticket.branch);
   if (!pr) return fail(ticket, { kind: "no-pr", reason: "The run finished but no PR from the branch exists." }, { worktree, sessionId: output.session_id });

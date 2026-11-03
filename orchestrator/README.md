@@ -13,13 +13,13 @@ A failed run, a skill that stopped, any permission denial, a second review that 
 
 ## Setup
 
-Everything the script needs lives outside this repo.
+The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20.12. Everything else it needs lives outside this repo.
 
 | File | Holds |
 | --- | --- |
 | `~/.config/software-factory/config.json` | The settings below. |
 | `~/.config/software-factory/secrets.env` | `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN`, one `NAME=value` per line. Mode 600. |
-| `~/.local/state/software-factory/` | `state.json`, `runs.jsonl`, the lock and pause files, the worktrees. |
+| `~/.local/state/software-factory/` | `state.json`, `runs.jsonl`, the lock and pause files, the worktrees, and one `settings-<hash>.json` per repo (the deny rules each run is started with; the script rewrites them before every run). |
 
 ```json
 {
@@ -77,13 +77,15 @@ If a team's tickets span repos, give each of that team's entries a `projects` li
 
 ## Follow a run
 
-`runs.jsonl` gets a line per run with its estimated usage, duration, turns and subagent counts:
+`runs.jsonl` gets a line per finished run with its estimated usage, duration, turns and subagent counts. A timed-out run writes no line: the ticket's escalation says so instead.
 
 ```bash
 tail -f ~/.local/state/software-factory/runs.jsonl
 ```
 
 `state.json` holds each ticket's phase, PR and session ID. The PR and the Linear issue show the rest.
+
+The handoff message reads the `## Response to /pr-review` table that address-review posts: the column order (`#`, finding, severity, disposition, evidence) and the `Dismissed` and `Deferred` prefixes on the disposition column. A changed table layout would leave the dismissals and deferrals out of the message.
 
 ## Open a run with `claude --resume`
 

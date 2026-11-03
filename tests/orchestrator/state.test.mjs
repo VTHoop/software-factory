@@ -14,7 +14,7 @@ describe("state on disk", () => {
 
   it("survives a restart", () => {
     const d = dir();
-    const state = { tickets: [{ key: "HEA-1", phase: "reviewing", sessionId: "s" }], pausedUntil: null };
+    const state = { tickets: [{ key: "HEA-1", phase: "implemented", sessionId: "s" }], pausedUntil: null };
     saveState(d, state);
     assert.deepEqual(loadState(d), state);
   });
@@ -85,14 +85,14 @@ describe("pause file", () => {
 
 describe("recover", () => {
   it("resumes a run cut off by a restart once", () => {
-    const t = { key: "HEA-1", phase: "reviewing", running: { startedAt: "t" } };
+    const t = { key: "HEA-1", phase: "implemented", running: { startedAt: "t" } };
     const r = recover(t);
     assert.equal(r.action, "resume");
     assert.equal(r.ticket.running.resumedOnce, true);
   });
 
   it("escalates a run that was already resumed once", () => {
-    const t = { key: "HEA-1", phase: "reviewing", running: { startedAt: "t", resumedOnce: true } };
+    const t = { key: "HEA-1", phase: "implemented", running: { startedAt: "t", resumedOnce: true } };
     assert.equal(recover(t).action, "escalate");
   });
 

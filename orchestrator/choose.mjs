@@ -1,4 +1,4 @@
-import { entryFor } from "./config.mjs";
+import { entryFor } from "./entries.mjs";
 
 const rank = (priority) => (priority === 0 ? 5 : priority);
 

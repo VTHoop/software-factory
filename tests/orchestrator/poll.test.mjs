@@ -26,7 +26,6 @@ const setup = ({ issues = [], tickets = [], config = {}, pausedUntil = null } = 
   const step = (name) => async (t) => (calls.push([name, t.key]), { ...t, phase: "implemented" });
   const deps = {
     calls,
-    claude: async () => assert.fail("a poll with nothing to do must not call the model"),
     linear: { listIssues: async () => issues },
     run: {
       implement: step("implement"),
@@ -77,7 +76,7 @@ describe("poll", () => {
   });
 
   it("starts nothing new while one of its own tickets holds the slot", async () => {
-    const tickets = [{ key: "HEA-4", phase: "reviewing", running: { startedAt: "t", resumedOnce: true } }];
+    const tickets = [{ key: "HEA-4", phase: "implemented", running: { startedAt: "t", resumedOnce: true } }];
     const { ctx, deps } = setup({ issues: [ready], tickets });
     await poll(ctx);
     assert.ok(!deps.calls.some((c) => c[0] === "implement"));
@@ -144,7 +143,7 @@ describe("poll", () => {
   });
 
   it("escalates a run cut off twice by restarts instead of resuming it again", async () => {
-    const tickets = [{ key: "HEA-4", phase: "reviewing", pr: 7, running: { startedAt: "t", resumedOnce: true } }];
+    const tickets = [{ key: "HEA-4", phase: "implemented", pr: 7, running: { startedAt: "t", resumedOnce: true } }];
     const { ctx, deps } = setup({ tickets });
     await poll(ctx);
     assert.ok(deps.calls.some((c) => c[0] === "escalate" && c[1] === "HEA-4"));

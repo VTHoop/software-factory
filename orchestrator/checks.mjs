@@ -23,14 +23,20 @@ const resultLine = (text) => {
 
 const MAX_COMMAND = 200;
 
-// Denied commands are model-written and end up in comments, notifications and the log.
-export const redact = (text) => {
-  const masked = String(text)
+// Model-written text ends up in comments, notifications and the log, so secrets are masked first.
+export const maskSecrets = (text) =>
+  String(text)
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer [redacted]")
     .replace(/lin_api_\w+/g, "[redacted]")
     .replace(/sk-ant-[\w-]+/g, "[redacted]")
     .replace(/gh[pousr]_\w+/g, "[redacted]")
-    .replace(/(\b[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)\w*=)\S+/g, "$1[redacted]");
+    .replace(/github_pat_\w+/g, "[redacted]")
+    .replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, "[redacted]")
+    .replace(/(\b\w*(?:KEY|TOKEN|SECRET|PASSWORD)\w*=)\S+/gi, "$1[redacted]");
+
+// A denied command, masked and cut short.
+export const redact = (text) => {
+  const masked = maskSecrets(text);
   return masked.length > MAX_COMMAND ? `${masked.slice(0, MAX_COMMAND)}…` : masked;
 };
 
@@ -88,11 +94,15 @@ export const judgeRun = (output, { maxTurns, expect }) => {
   return { ok: true };
 };
 
+const MAX_PAUSE_MS = 7 * 24 * 3_600_000;
+
 // A plan-limit result carries when the limit resets, as `...limit reached|<epoch seconds>`.
+// Only a run that ended in an error can be one, and the pause is capped.
 export const parseLimit = (output, { now, fallbackMs = 3_600_000 }) => {
+  if (!output.is_error) return null;
   const text = String(output.result ?? "");
   if (!/usage limit reached/i.test(text)) return null;
   const epoch = text.match(/\|(\d{9,})/);
   const resetAt = epoch ? new Date(Number(epoch[1]) * 1000) : new Date(now.getTime() + fallbackMs);
-  return { resetAt };
+  return { resetAt: new Date(Math.min(resetAt.getTime(), now.getTime() + MAX_PAUSE_MS)) };
 };

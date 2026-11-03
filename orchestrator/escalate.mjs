@@ -1,6 +1,9 @@
+import { maskSecrets } from "./checks.mjs";
+
 // The script owns every escalation; a stopped skill posts none of its own.
 // The label and status come first: if a step fails and the poll repeats, no comment is posted twice.
-export const escalate = async (ticket, reason, deps, { denied = [] } = {}) => {
+export const escalate = async (ticket, rawReason, deps, { denied = [] } = {}) => {
+  const reason = maskSecrets(rawReason);
   const links = [ticket.issueUrl, ticket.prUrl].filter(Boolean);
   const body = [
     `🛑 Escalated to the owner: ${reason}`,

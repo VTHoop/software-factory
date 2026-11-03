@@ -43,15 +43,7 @@ export const loadConfig = (file) => {
   };
 };
 
-// The entry that owns an issue: one listing its project, else the team-wide one.
-export const entryFor = (config, { team, project }) => {
-  const ofTeam = config.entries.filter((entry) => entry.team === team);
-  return (
-    ofTeam.find((entry) => entry.projects?.includes(project)) ??
-    ofTeam.find((entry) => !entry.projects) ??
-    null
-  );
-};
+export { entryFor } from "./entries.mjs";
 
 export const defaultPaths = (env = process.env) => {
   const home = env.HOME;

@@ -55,7 +55,7 @@ describe("escalate", () => {
 
   it("marks the ticket escalated", async () => {
     const { deps } = make();
-    const result = await escalate({ key: "HEA-1", pr: 7, phase: "reviewing" }, "why", deps);
+    const result = await escalate({ key: "HEA-1", pr: 7, phase: "implemented" }, "why", deps);
     assert.equal(result.phase, "escalated");
     assert.equal(result.reason, "why");
   });

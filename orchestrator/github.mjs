@@ -46,7 +46,8 @@ export const createGithub = (config, run = exec) => {
     },
 
     async ciState(sha) {
-      const { check_runs: runs } = JSON.parse(await gh(["api", `repos/${config.githubRepo}/commits/${sha}/check-runs`]));
+      const pages = await json(["api", "--paginate", "--slurp", `repos/${config.githubRepo}/commits/${sha}/check-runs?per_page=100`]);
+      const runs = pages.flatMap((page) => page.check_runs);
       if (runs.length === 0) return "none";
       if (runs.some((r) => r.status !== "completed")) return "pending";
       return runs.every((r) => ["success", "neutral", "skipped"].includes(r.conclusion)) ? "success" : "failure";
@@ -54,7 +55,7 @@ export const createGithub = (config, run = exec) => {
 
     async prDetails(pr) {
       const data = await json(["pr", "view", String(pr), "--json", "number,url,body,comments"]);
-      const preview = previewUrl(data.comments, config.previewAuthors ?? ["vercel"]);
+      const preview = previewUrl(data.comments, config.previewAuthors);
       return { number: data.number, url: data.url, body: data.body, previewUrl: preview };
     },
 
