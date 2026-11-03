@@ -16,8 +16,22 @@ describe("nextAction", () => {
     });
   });
 
-  it("hands off on Overall: Approved", () => {
+  it("answers an Approved first review too, because it can still carry findings", () => {
     assert.deepEqual(nextAction(ticket({ phase: "reviewed", outcome: "Approved" })), {
+      type: "answer",
+      pr: 7,
+      resume: "sess-1",
+    });
+  });
+
+  it("hands off a second review that is Approved", () => {
+    assert.deepEqual(nextAction(ticket({ phase: "reviewed", outcome: "Approved", reviews: 2 })), {
+      type: "handoff",
+    });
+  });
+
+  it("hands off after answering an Approved review, with no re-review", () => {
+    assert.deepEqual(nextAction(ticket({ phase: "answered", outcome: "Approved" })), {
       type: "handoff",
     });
   });
@@ -38,12 +52,12 @@ describe("nextAction", () => {
     });
   }
 
-  it("starts one more review after a response", () => {
-    assert.deepEqual(nextAction(ticket({ phase: "answered" })), { type: "review", pr: 7 });
+  it("starts one more review after answering a review that was not Approved", () => {
+    assert.deepEqual(nextAction(ticket({ phase: "answered", outcome: "Needs Revision" })), { type: "review", pr: 7 });
   });
 
   it("never reviews a third time", () => {
-    const action = nextAction(ticket({ phase: "answered", reviews: 2 }));
+    const action = nextAction(ticket({ phase: "answered", outcome: "Blocked", reviews: 2 }));
     assert.notEqual(action.type, "review");
   });
 
