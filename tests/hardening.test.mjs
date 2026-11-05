@@ -161,6 +161,8 @@ describe("the App filters work whether or not the variable is set", async () => 
   const lines = (name) => skill(name).split("\n").filter((l) => /== "COLLABORATOR"/.test(l));
   const comments = JSON.stringify([
     { authorAssociation: "NONE", author: { login: "factory", is_bot: true }, author_association: "NONE", user: { login: "factory[bot]" } },
+    { authorAssociation: "NONE", author: { login: "app/factory", is_bot: true }, author_association: "NONE", user: { login: "factory[bot]" } },
+    { authorAssociation: "NONE", author: { login: "app/other", is_bot: true }, author_association: "NONE", user: { login: "other[bot]" } },
     { authorAssociation: "NONE", author: { login: "stranger", is_bot: false }, author_association: "NONE", user: { login: "stranger" } },
     { authorAssociation: "OWNER", author: { login: "VTHoop", is_bot: false }, author_association: "OWNER", user: { login: "VTHoop" } },
   ]);
@@ -191,7 +193,7 @@ describe("the App filters work whether or not the variable is set", async () => 
         const got = r.stdout.trim().split("\n");
         assert.ok(got.includes("VTHoop"));
         assert.ok(!got.includes("stranger"));
-        assert.equal(got.length, 2, "the owner and the App, no one else");
+        assert.equal(got.length, 3, "the owner and the App in both shapes, no one else");
       });
 
       it(`${name}: an empty variable trusts nobody extra`, { skip: !hasJq && "jq is not installed" }, () => {
