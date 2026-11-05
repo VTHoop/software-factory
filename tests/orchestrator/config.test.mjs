@@ -145,3 +145,32 @@ describe("loadConfig defaults", () => {
     assert.equal(loadConfig(write({ base: "develop" })).base, "develop");
   });
 });
+
+describe("loadConfig githubApp", () => {
+  const write = (config) => {
+    const file = join(tmp(), "config.json");
+    writeFileSync(file, JSON.stringify(config));
+    return file;
+  };
+  const githubApp = { appId: "1", installationId: "2", privateKeyFile: "/keys/app.pem", botLogin: "factory[bot]", botUserId: 4242 };
+  const base = { model: "sonnet", maxTurns: 80, runTimeoutMs: 1800000, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }] };
+
+  it("is optional", () => {
+    assert.equal(loadConfig(write(base)).githubApp, undefined);
+  });
+
+  it("keeps a complete App", () => {
+    assert.deepEqual(loadConfig(write({ ...base, githubApp })).githubApp, githubApp);
+  });
+
+  it("names the missing field", () => {
+    for (const k of Object.keys(githubApp)) {
+      const { [k]: _, ...rest } = githubApp;
+      assert.throws(() => loadConfig(write({ ...base, githubApp: rest })), new RegExp(`githubApp.${k}`));
+    }
+  });
+
+  it("requires the bot login to end in [bot]", () => {
+    assert.throws(() => loadConfig(write({ ...base, githubApp: { ...githubApp, botLogin: "factory" } })), /\[bot\]/);
+  });
+});

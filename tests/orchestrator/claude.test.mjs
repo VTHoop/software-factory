@@ -184,3 +184,23 @@ describe("runClaude process handling", () => {
     assert.equal(r.resumeFailed, true);
   });
 });
+
+describe("buildSettings and the GitHub App", () => {
+  const { permissions } = buildSettings(project, { base: "main", keyFile: "/keys/app.pem" });
+  const denies = (re) => permissions.deny.some((d) => re.test(d));
+
+  it("denies reading the App's private key file", () => {
+    assert.ok(permissions.deny.includes("Read(/keys/app.pem)"));
+    assert.ok(denies(/Bash\(\*\/keys\/app\.pem\*\)/));
+  });
+
+  it("denies printing the installation token from the environment", () => {
+    assert.ok(denies(/GH_TOKEN/));
+    assert.ok(denies(/printenv/));
+  });
+
+  it("adds no key denial when no App is configured", () => {
+    const plain = buildSettings(project, { base: "main" }).permissions.deny;
+    assert.ok(!plain.some((d) => d.includes("undefined")));
+  });
+});

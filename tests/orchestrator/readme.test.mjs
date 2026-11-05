@@ -58,8 +58,8 @@ describe("orchestrator README", () => {
     assert.match(section(), /branch protection/i);
   });
   it("documents the per-repo needsDocker setting", () => assert.match(section(), /needsDocker/));
-  it("says the agent's GitHub account must be a collaborator on a new repo", () => {
-    assert.match(section(), /collaborator/i);
+  it("says the GitHub App must be installed on a new repo", () => {
+    assert.match(section(), /installed on|install it on/i);
   });
   it("explains how to follow a live run from another machine", () => {
     assert.match(section(), /follow a live run/i);
@@ -69,5 +69,29 @@ describe("orchestrator README", () => {
   it("says the log records the Claude Code version", () => assert.match(section(), /claudeVersion/));
   it("is linked from the main README", () => {
     assert.match(read("README.md"), /orchestrator\/README\.md/);
+  });
+});
+
+describe("orchestrator README and the GitHub App", () => {
+  it("covers registering the App with only the permissions the factory needs", () => {
+    assert.match(section(), /register.*GitHub App|GitHub App.*register/is);
+    for (const word of ["contents", "pull requests", "issues", "checks"]) assert.match(section(), new RegExp(word, "i"), word);
+  });
+  it("covers installing it on a new repo and the rule that keeps it off main", () => {
+    assert.match(section(), /install.*(repo|repositor)/is);
+    assert.match(section(), /ruleset|rule on `?main/i);
+  });
+  it("documents githubApp, the key file's mode and where it lives", () => {
+    assert.match(section(), /githubApp/);
+    assert.match(section(), /privateKeyFile/);
+    assert.match(section(), /600/);
+    assert.match(section(), /outside the repo/i);
+  });
+  it("says a token is minted every poll and a failure to mint exits nonzero", () => {
+    assert.match(section(), /every poll/i);
+    assert.match(section(), /30 minutes/);
+  });
+  it("no longer asks for a collaborator account on a new repo", () => {
+    assert.doesNotMatch(section(), /account that runs the script must be a collaborator/i);
   });
 });

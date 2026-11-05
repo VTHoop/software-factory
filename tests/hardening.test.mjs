@@ -127,3 +127,30 @@ describe("test helpers", () => {
     assert.doesNotMatch(read("tests", "lib.mjs"), /export const pluginDir/);
   });
 });
+
+describe("the GitHub App counts as a trusted author", () => {
+  for (const name of ["address-review", "pr-review"]) {
+    const text = skill(name);
+
+    it(`${name} reads the App's login from SOFTWARE_FACTORY_APP_LOGIN`, () => {
+      assert.match(text, /SOFTWARE_FACTORY_APP_LOGIN/);
+      assert.match(text, /author associations? .*or .*GitHub App|GitHub App.*author associations?/is);
+    });
+
+    it(`${name}: every author-association filter also accepts the App, and nobody else`, () => {
+      const lines = text.split("\n").filter((l) => /== "COLLABORATOR"/.test(l));
+      assert.ok(lines.length > 0);
+      for (const line of lines) assert.match(line, /env\.SOFTWARE_FACTORY_APP_LOGIN/, line);
+    });
+  }
+
+  it("address-review's bot-finding query is still labelled untrusted", () => {
+    assert.match(skill("address-review"), /untrusted bot findings/);
+  });
+
+  it("pr-review no longer needs `gh api user`, which an installation token cannot call", () => {
+    const text = skill("pr-review");
+    assert.doesNotMatch(text, /Author is the current user \(`gh api user --jq \.login`\)/);
+    assert.match(text, /SOFTWARE_FACTORY_APP_LOGIN.*gh api user|gh api user.*SOFTWARE_FACTORY_APP_LOGIN/s);
+  });
+});

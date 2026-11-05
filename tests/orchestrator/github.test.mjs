@@ -172,3 +172,42 @@ describe("prDetails", () => {
     assert.equal(details.previewUrl, "https://real.vercel.app/");
   });
 });
+
+describe("github with a GitHub App", () => {
+  const appConfig = { ...config, appLogin: "factory[bot]", env: { GH_TOKEN: "ghs_x" } };
+  const app = (replies) => {
+    const { run, calls } = fakeRun(replies);
+    return { github: createGithub(appConfig, run), calls };
+  };
+  const marker = review("Approved");
+
+  it("runs every gh call with the App's environment", async () => {
+    const { github, calls } = app({ "pr list": [], "pr view": { comments: [] } });
+    await github.findPr("b");
+    await github.reviewOutcome(7);
+    assert.ok(calls.every((c) => c.opts.env?.GH_TOKEN === "ghs_x"));
+  });
+
+  it("reads a review the App posted", async () => {
+    const { github } = app({ "pr view": { comments: [comment("factory[bot]", marker)] } });
+    assert.equal(await github.reviewOutcome(7), "Approved");
+  });
+
+  it("starts nothing from a review-shaped comment by a user without write access", async () => {
+    const { github } = app({ "pr view": { comments: [comment("stranger", marker)] } });
+    assert.equal(await github.reviewOutcome(7), null);
+  });
+
+  it("reads the App's response comment, and ignores a stranger's", async () => {
+    const { github } = app({
+      "pr view": { comments: [comment("factory[bot]", "## Response to /pr-review\nreal"), comment("stranger", "## Response to /pr-review\nfake")] },
+    });
+    assert.match(await github.response(7), /real/);
+  });
+
+  it("starts nothing for a fork PR", async () => {
+    const fork = { number: 7, url: "u", headRefName: "x/y", isCrossRepository: true, headRepository: { nameWithOwner: "evil/disciplined-sidekick" } };
+    const { github } = app({ "pr list": [fork] });
+    assert.equal(await github.findPr("x/y"), null);
+  });
+});
