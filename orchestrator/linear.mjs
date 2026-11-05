@@ -97,7 +97,7 @@ export const createLinear = (key, fetch = globalThis.fetch) => {
         { team: issue.team.id, name },
       );
       const label = labels.issueLabels.nodes[0];
-      if (!label) throw new Error(`No label named ${name}`);
+      if (!label) throw new Error(`No label named ${name} for this issue's team; create a label named ${name} in Linear (a team or workspace label)`);
       await query(`mutation($id: String!, $label: String!) { issueAddLabel(id: $id, labelId: $label) { success } }`, {
         id: issue.id,
         label: label.id,

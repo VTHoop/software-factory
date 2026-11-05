@@ -76,6 +76,10 @@ while true; do node orchestrator/cli.mjs; sleep 300; done
 
 An invocation that starts while another is running exits without acting. Stop the project's local services, such as Supabase (`supabase stop`), before you start it on your own machine: runs start them and clash with yours on the same ports.
 
+## Linear labels
+
+Every Linear workspace the script works in needs a label named `needs-owner`, as a team or workspace label. An escalation adds it first, so without it the escalation fails with `No label named needs-owner`. When an escalation itself fails, the ticket stays `failed` with its original reason, the poll exits with code 1 and says why, and the next poll tries the escalation again. Create the label and the next poll finishes the escalation. Only a ticket in **Ready** without `needs-owner` is picked up, so to run an escalated ticket again, remove the label and move it back to Ready.
+
 ## Add a project
 
 Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`. Set `needsDocker: true` on an entry whose runs need Docker, such as ones that start Supabase: a poll then fails before it touches a ticket while `docker info` fails, which is how the daemon looks for a while after a reboot, and the next poll tries again.

@@ -24,6 +24,16 @@ const cleanUp = async (stateDir, deps) => {
 };
 
 const pollOnce = async ({ stateDir, now, deps, config }) => {
+  // If escalating fails (a missing Linear label, say), keep the failure as it was and clear the run.
+  // Left alone, the stale run is read as a restart, and the ticket's real reason is lost.
+  const escalate = async (state, ticket, reason, extra) => {
+    try {
+      return await deps.run.escalate(ticket, reason, extra);
+    } catch (error) {
+      saveState(stateDir, replace(state, { ...ticket, phase: "failed", reason, denied: extra?.denied, running: undefined }));
+      throw error;
+    }
+  };
   let state = loadState(stateDir);
   if (state.pausedUntil && new Date(state.pausedUntil) > now) {
     return { acted: false, reason: `paused until ${state.pausedUntil}` };
@@ -35,7 +45,7 @@ const pollOnce = async ({ stateDir, now, deps, config }) => {
   if (ticket) {
     const recovery = recover(ticket);
     if (recovery.action === "escalate") {
-      const escalated = await deps.run.escalate(ticket, "A run cut off by a restart was already resumed once.");
+      const escalated = await escalate(state, ticket, "A run cut off by a restart was already resumed once.");
       saveState(stateDir, replace(state, { ...escalated, running: undefined }));
       return { acted: true, key: ticket.key, action: "escalate" };
     }
@@ -65,7 +75,7 @@ const pollOnce = async ({ stateDir, now, deps, config }) => {
   saveState(stateDir, replace(state, { ...ticket, running: { ...ticket.running, step: action.type, startedAt: now.toISOString() } }));
   let result;
   try {
-    result = action.type === "escalate" ? await deps.run.escalate(ticket, action.reason, { denied: ticket.denied }) : await deps.run[action.type](ticket);
+    result = action.type === "escalate" ? await escalate(state, ticket, action.reason, { denied: ticket.denied }) : await deps.run[action.type](ticket);
   } catch (error) {
     if (!error.planLimit) throw error;
     const resetAt = error.planLimit.resetAt.toISOString();
@@ -78,7 +88,7 @@ const pollOnce = async ({ stateDir, now, deps, config }) => {
     return { acted: true, key: ticket.key, action: "pause" };
   }
   if (result.phase === "failed") {
-    result = await deps.run.escalate(result, result.reason, { denied: result.denied });
+    result = await escalate(state, result, result.reason, { denied: result.denied });
   }
   saveState(stateDir, replace(state, { ...result, running: undefined }));
   return { acted: true, key: ticket.key, action: action.type };
