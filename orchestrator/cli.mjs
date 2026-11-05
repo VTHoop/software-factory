@@ -2,7 +2,7 @@
 // One poll: run whatever step is due, then exit. Start it by hand or from a loop.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { signedIn } from "./checks.mjs";
+import { dockerReady, signedIn } from "./checks.mjs";
 import { buildArgs, buildSettings, killRunning, runClaude, settingsFile } from "./claude.mjs";
 import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "./config.mjs";
 import { escalate } from "./escalate.mjs";
@@ -32,6 +32,8 @@ const main = async () => {
   const config = loadConfig(paths.config);
   const secrets = loadSecrets(paths.secrets);
   const send = (n) => notify(n, { secrets });
+  // Recorded in each run's log line. It stays unknown if the CLI can't say, and the preflight reports that.
+  const claudeVersion = await exec("claude", ["--version"], { timeoutMs: 30_000 }).then((r) => r.stdout.trim(), () => undefined);
   const linearClients = new Map();
   const linearFor = (repo) => {
     if (!linearClients.has(repo)) linearClients.set(repo, createLinear(linearKeyFor(repo)));
@@ -52,6 +54,7 @@ const main = async () => {
     writeFileSync(settings, JSON.stringify(buildSettings(entry, { base: config.base })));
     const deps = {
       config: { ...config, repo: entry.repo },
+      claudeVersion,
       linear: linearFor(entry.repo),
       github: createGithub({ githubRepo: entry.githubRepo, trustedAuthors: config.trustedAuthors, previewAuthors: config.previewAuthors }),
       git: {
@@ -74,10 +77,14 @@ const main = async () => {
     return deps;
   };
 
-  const preflight = async () => {
+  const preflight = async (ticket) => {
     const { stdout } = await exec("claude", ["auth", "status"], { timeoutMs: 30_000 }).catch((e) => ({ stdout: e.stdout ?? "" }));
     const status = signedIn(stdout);
     if (!status.ok) throw new Error(status.message);
+    if (ownerOf(ticket).needsDocker) {
+      const docker = await dockerReady(() => exec("docker", ["info"], { timeoutMs: 30_000 }));
+      if (!docker.ok) throw new Error(docker.message);
+    }
   };
 
   const forTicket = (ticket) => depsFor(ownerOf(ticket));

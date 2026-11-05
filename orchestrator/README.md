@@ -71,13 +71,15 @@ An invocation that starts while another is running exits without acting. Stop th
 
 ## Add a project
 
-Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`.
+Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`. Set `needsDocker: true` on an entry whose runs need Docker, such as ones that start Supabase: a poll then fails before it touches a ticket while `docker info` fails, which is how the daemon looks for a while after a reboot, and the next poll tries again.
+
+The GitHub account that runs the script must be a collaborator on the repo, so it can push branches and its reviews count. Its login goes in `trustedAuthors`.
 
 If a team's tickets span repos, give each of that team's entries a `projects` list. An entry that lists an issue's project takes it; the script refuses a config where two entries share a team and one has no `projects`. Tickets are picked from **Ready**, highest priority and then oldest first; one with `needs-owner` or an open blocker is skipped.
 
 ## Follow a run
 
-`runs.jsonl` gets a line per finished run with its estimated usage, duration, turns and subagent counts. A timed-out run writes no line: the ticket's escalation says so instead.
+`runs.jsonl` gets a line per finished run with its estimated usage, duration, turns, subagent counts and `claudeVersion`, the Claude Code version the run used. A timed-out run writes no line: the ticket's escalation says so instead.
 
 ```bash
 tail -f ~/.local/state/software-factory/runs.jsonl
@@ -86,6 +88,16 @@ tail -f ~/.local/state/software-factory/runs.jsonl
 `state.json` holds each ticket's phase, PR and session ID. The PR and the Linear issue show the rest.
 
 The handoff message reads the `## Response to /pr-review` table that address-review posts: the column order (`#`, finding, severity, disposition, evidence) and the `Dismissed` and `Deferred` prefixes on the disposition column. A changed table layout would leave the dismissals and deferrals out of the message.
+
+### Follow a live run
+
+From another machine, over SSH, tail the log. A line appears when a run ends, not while it works.
+
+```bash
+ssh <agent-user>@<mini> tail -f ~/.local/state/software-factory/runs.jsonl
+```
+
+The PR and the Linear issue show progress in between.
 
 ## Open a run with `claude --resume`
 

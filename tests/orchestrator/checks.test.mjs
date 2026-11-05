@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deniedCommands, judgeRun, parseLimit, REVIEWERS as NAMES, redact, signedIn } from "../../orchestrator/checks.mjs";
+import { deniedCommands, judgeRun, parseLimit, REVIEWERS as NAMES, redact, dockerReady, signedIn } from "../../orchestrator/checks.mjs";
 import { AGENTS } from "../lib.mjs";
 import { byType, output, REVIEWERS, reviewOutput } from "./fakes.mjs";
 
@@ -184,5 +184,19 @@ describe("parseLimit guards", () => {
   it("caps a reset time far in the future", () => {
     const r = parseLimit(output({ is_error: true, result: "usage limit reached|9999999999" }), { now });
     assert.ok(r.resetAt.getTime() - now.getTime() <= 7 * 24 * 3_600_000);
+  });
+});
+
+describe("dockerReady", () => {
+  it("is ok when `docker info` succeeds", async () => {
+    assert.deepEqual(await dockerReady(async () => ({ stdout: "ok" })), { ok: true });
+  });
+
+  it("is not ok, with a message that says to wait, when `docker info` fails", async () => {
+    const r = await dockerReady(async () => {
+      throw new Error("Cannot connect to the Docker daemon");
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /Docker is not ready/);
   });
 });

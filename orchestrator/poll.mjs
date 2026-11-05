@@ -60,7 +60,7 @@ const pollOnce = async ({ stateDir, now, deps, config }) => {
 
   const action = nextAction(ticket);
   if (action.type === "wait") return { acted: false, reason: `${ticket.key} is waiting` };
-  if (MODEL_STEPS.has(action.type)) await deps.preflight?.();
+  if (MODEL_STEPS.has(action.type)) await deps.preflight?.(ticket);
 
   saveState(stateDir, replace(state, { ...ticket, running: { ...ticket.running, step: action.type, startedAt: now.toISOString() } }));
   let result;

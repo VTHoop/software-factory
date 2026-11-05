@@ -212,4 +212,11 @@ describe("run log", () => {
     assert.ok(!JSON.stringify(logged[0].denied).includes("abc123def456"));
     assert.equal(logged[0].denied.length, 1);
   });
+
+  it("records the Claude Code version from the dependencies", async () => {
+    const logged = [];
+    const deps = makeDeps({ claudeVersion: "2.1.316", log: (r) => logged.push(r) });
+    await implement(claimed, deps);
+    assert.equal(logged[0].claudeVersion, "2.1.316");
+  });
 });
