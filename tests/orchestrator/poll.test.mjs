@@ -206,3 +206,52 @@ describe("poll", () => {
     assert.deepEqual(deps.calls, [["implement", "HEA-5"]]);
   });
 });
+
+describe("poll when an escalation itself fails", () => {
+  const failing = { phase: "failed", reason: "Permission denied: edit .github/ci.yml" };
+  const broken = () => {
+    const h = setup({ issues: [ready] });
+    h.deps.run.implement = async (t) => ({ ...t, ...failing });
+    h.deps.run.escalate = async () => {
+      throw new Error("No label named needs-owner");
+    };
+    return h;
+  };
+
+  it("surfaces the escalation's error", async () => {
+    const { ctx } = broken();
+    await assert.rejects(poll(ctx), /No label named needs-owner/);
+  });
+
+  it("keeps the failure and its reason, and clears the run, so it is not later read as a restart", async () => {
+    const { ctx, stateDir } = broken();
+    await assert.rejects(poll(ctx));
+    const [ticket] = loadState(stateDir).tickets;
+    assert.equal(ticket.phase, "failed");
+    assert.equal(ticket.reason, failing.reason);
+    assert.equal(ticket.running, undefined);
+  });
+
+  it("retries only the escalation on the next poll, with the original reason", async () => {
+    const { ctx, deps, stateDir } = broken();
+    await assert.rejects(poll(ctx));
+    deps.run.escalate = async (t, reason) => (deps.calls.push(["escalate", t.key, reason]), { ...t, phase: "escalated" });
+    deps.calls.length = 0;
+    await poll(ctx);
+    assert.deepEqual(deps.calls, [["escalate", "HEA-5", failing.reason]]);
+    assert.equal(loadState(stateDir).tickets[0].phase, "escalated");
+  });
+
+  it("does the same when the escalation that fails is for a run cut off twice", async () => {
+    const tickets = [{ key: "HEA-4", phase: "claimed", running: { step: "implement", startedAt: "x", resumedOnce: true } }];
+    const { ctx, deps, stateDir } = setup({ tickets });
+    deps.run.escalate = async () => {
+      throw new Error("No label named needs-owner");
+    };
+    await assert.rejects(poll(ctx), /needs-owner/);
+    const [ticket] = loadState(stateDir).tickets;
+    assert.equal(ticket.phase, "failed");
+    assert.match(ticket.reason, /cut off by a restart/);
+    assert.equal(ticket.running, undefined);
+  });
+});

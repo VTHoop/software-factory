@@ -104,3 +104,14 @@ describe("orchestrator README is honest about the key", () => {
     assert.match(app, /separate (macOS )?user/i);
   });
 });
+
+describe("orchestrator README and the needs-owner label", () => {
+  it("says each Linear workspace needs a needs-owner label before the first run", () => {
+    assert.match(section(), /`needs-owner`/);
+    assert.match(section(), /label.*(each|every).*(workspace|team)|(each|every).*(workspace|team).*label/is);
+  });
+  it("says what an escalation that fails leaves behind and how to retry", () => {
+    assert.match(section(), /escalation (itself )?fails/i);
+    assert.match(section(), /next poll/i);
+  });
+});
