@@ -127,3 +127,19 @@ describe("cleanupWorktrees", () => {
     assert.deepEqual(keys, []);
   });
 });
+
+describe("worktree git calls take an explicit environment", () => {
+  it("runs git with the env it is given, for both fetching paths", async () => {
+    const { chmodSync, readFileSync } = await import("node:fs");
+    const { repo, root, base } = repos();
+    const bin = join(base, "bin");
+    mkdirSync(bin);
+    const log = join(base, "env.log");
+    const real = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+    writeFileSync(join(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$MARK" >> "${log}"\nexec "${real}" "$@"\n`);
+    chmodSync(join(bin, "git"), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, MARK: "explicit" };
+    await addWorktree({ repo, branch: "u/hea-1-x", base: "main" }, root, env);
+    assert.ok(readFileSync(log, "utf8").split("\n").filter(Boolean).every((l) => l === "explicit"));
+  });
+});

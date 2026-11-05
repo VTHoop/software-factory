@@ -95,3 +95,12 @@ describe("orchestrator README and the GitHub App", () => {
     assert.doesNotMatch(section(), /account that runs the script must be a collaborator/i);
   });
 });
+
+describe("orchestrator README is honest about the key", () => {
+  it("calls the deny rules guardrails in the GitHub App section, and says what isolates the key", () => {
+    const app = section().slice(section().indexOf("## The GitHub App"), section().indexOf("## Follow a run"));
+    assert.match(app, /guardrail/i);
+    assert.doesNotMatch(app, /run settings deny reading it/i);
+    assert.match(app, /separate (macOS )?user/i);
+  });
+});

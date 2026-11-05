@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { assertKeyFile, botEmail, githubEnv, MAX_TOKEN_AGE_MS, pollWithIdentity } from "../../orchestrator/identity.mjs";
@@ -151,5 +151,64 @@ describe("pollWithIdentity", () => {
     const h = harness({ config: { entries: [] } });
     await pollWithIdentity(h.args);
     assert.deepEqual(h.calls, ["poll"]);
+  });
+});
+
+describe("callEnv", () => {
+  const setup = (at) => {
+    let current = at;
+    let identity;
+    return {
+      set: (d) => (current = d),
+      async make() {
+        await pollWithIdentity({
+          config,
+          now: () => current,
+          mint: async () => minted(),
+          checkKey: () => {},
+          poll: async (p) => { identity = p.identity; },
+          log: () => {},
+        });
+        return identity;
+      },
+    };
+  };
+
+  it("keeps working past 30 minutes, so cleanup and later gh calls in a long poll still run", async () => {
+    const s = setup(t0);
+    const identity = await s.make();
+    s.set(minutes(40));
+    assert.equal(identity.callEnv().GH_TOKEN, "ghs_secret_token");
+  });
+
+  it("stops before the token itself expires, and says so", async () => {
+    const s = setup(t0);
+    const identity = await s.make();
+    s.set(minutes(56));
+    assert.throws(() => identity.callEnv(), /expired/);
+  });
+});
+
+describe("assertKeyFile symlinks and owner", () => {
+  const dir = tmp("sf-key2-");
+
+  it("refuses a key that is a symlink into a repo", async () => {
+    const { symlinkSync } = await import("node:fs");
+    const repo = join(dir, "repo");
+    mkdirSync(repo);
+    const real = join(repo, "app.pem");
+    writeFileSync(real, "pem");
+    chmodSync(real, 0o600);
+    const link = join(dir, "link.pem");
+    symlinkSync(real, link);
+    assert.throws(() => assertKeyFile(link, [repo]), /inside/);
+  });
+
+  it("refuses a key owned by another user", () => {
+    const file = join(dir, "other.pem");
+    writeFileSync(file, "pem");
+    chmodSync(file, 0o600);
+    const stat = (f) => ({ ...statSync(f), mode: 0o100600, uid: process.getuid() + 1 });
+    assert.throws(() => assertKeyFile(file, [], stat), /owned by/);
   });
 });

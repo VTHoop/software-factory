@@ -84,3 +84,16 @@ describe("mintInstallationToken", () => {
     );
   });
 });
+
+describe("mintInstallationToken hardening", () => {
+  it("fails when GitHub answers 200 without a token, instead of returning undefined", async () => {
+    const { fetch } = fakeFetch({ status: 201, body: {} });
+    await assert.rejects(mintInstallationToken({ app, repos: ["o/r"], now, fetch, readKey: () => pem }), /no token/);
+  });
+
+  it("gives the request a time limit", async () => {
+    const { fetch, calls } = fakeFetch();
+    await mintInstallationToken({ app, repos: ["o/r"], now, fetch, readKey: () => pem });
+    assert.ok(calls[0].init.signal instanceof AbortSignal);
+  });
+});

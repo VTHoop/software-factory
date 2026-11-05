@@ -174,3 +174,26 @@ describe("loadConfig githubApp", () => {
     assert.throws(() => loadConfig(write({ ...base, githubApp: { ...githubApp, botLogin: "factory" } })), /\[bot\]/);
   });
 });
+
+describe("loadConfig githubApp and the run limit", () => {
+  const githubApp = { appId: "1", installationId: "2", privateKeyFile: "/keys/app.pem", botLogin: "factory[bot]", botUserId: 4242 };
+  const base = { model: "sonnet", maxTurns: 80, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }], githubApp };
+  const write = (config) => {
+    const file = join(tmp(), "config.json");
+    writeFileSync(file, JSON.stringify(config));
+    return file;
+  };
+
+  it("accepts a run limit up to 30 minutes", () => {
+    assert.doesNotThrow(() => loadConfig(write({ ...base, runTimeoutMs: 1_800_000 })));
+  });
+
+  it("refuses a longer run limit, which a token could not outlive", () => {
+    assert.throws(() => loadConfig(write({ ...base, runTimeoutMs: 1_800_001 })), /runTimeoutMs.*30 minutes/);
+  });
+
+  it("does not limit the run when no App is configured", () => {
+    const { githubApp: _, ...plain } = base;
+    assert.doesNotThrow(() => loadConfig(write({ ...plain, runTimeoutMs: 7_200_000 })));
+  });
+});

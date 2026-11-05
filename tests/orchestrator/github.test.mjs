@@ -211,3 +211,14 @@ describe("github with a GitHub App", () => {
     assert.equal(await github.findPr("x/y"), null);
   });
 });
+
+describe("github env as a function", () => {
+  it("asks for the environment on every gh call", async () => {
+    let n = 0;
+    const { run, calls } = fakeRun({ "pr list": [], "pr view": { headRefOid: "abc" } });
+    const github = createGithub({ ...config, env: () => ({ GH_TOKEN: `t${++n}` }) }, run);
+    await github.findPr("b");
+    await github.headSha(7);
+    assert.deepEqual(calls.map((c) => c.opts.env.GH_TOKEN), ["t1", "t2"]);
+  });
+});

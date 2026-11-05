@@ -154,3 +154,47 @@ describe("the GitHub App counts as a trusted author", () => {
     assert.match(text, /SOFTWARE_FACTORY_APP_LOGIN.*gh api user|gh api user.*SOFTWARE_FACTORY_APP_LOGIN/s);
   });
 });
+
+describe("the App filters work whether or not the variable is set", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const hasJq = spawnSync("jq", ["--version"]).status === 0;
+  const lines = (name) => skill(name).split("\n").filter((l) => /== "COLLABORATOR"/.test(l));
+  const comments = JSON.stringify([
+    { authorAssociation: "NONE", author: { login: "factory", is_bot: true }, author_association: "NONE", user: { login: "factory[bot]" } },
+    { authorAssociation: "NONE", author: { login: "stranger", is_bot: false }, author_association: "NONE", user: { login: "stranger" } },
+    { authorAssociation: "OWNER", author: { login: "VTHoop", is_bot: false }, author_association: "OWNER", user: { login: "VTHoop" } },
+  ]);
+  const run = (line, appLogin) => {
+    const expr = line.match(/select\((.*)\)\s*$/)[1];
+    const env = { ...process.env };
+    delete env.SOFTWARE_FACTORY_APP_LOGIN;
+    if (appLogin !== undefined) env.SOFTWARE_FACTORY_APP_LOGIN = appLogin;
+    const r = spawnSync("jq", ["-c", `.[] | select(${expr}) | (.author.login)`, "-"], { input: comments, env, encoding: "utf8" });
+    return r;
+  };
+
+  for (const name of ["address-review", "pr-review"]) {
+    for (const line of lines(name)) {
+      it(`${name}: keeps OWNER and does not error when the variable is unset`, { skip: !hasJq && "jq is not installed" }, () => {
+        const r = run(line, undefined);
+        assert.equal(r.status, 0, r.stderr);
+        assert.deepEqual(r.stdout.trim().split("\n"), ["VTHoop"]);
+      });
+
+      it(`${name}: also keeps the App, and not a stranger, when it is set`, { skip: !hasJq && "jq is not installed" }, () => {
+        const r = run(line, "factory[bot]");
+        assert.equal(r.status, 0, r.stderr);
+        const got = r.stdout.trim().split("\n");
+        assert.ok(got.includes("VTHoop"));
+        assert.ok(!got.includes("stranger"));
+        assert.equal(got.length, 2, "the owner and the App, no one else");
+      });
+
+      it(`${name}: an empty variable trusts nobody extra`, { skip: !hasJq && "jq is not installed" }, () => {
+        const r = run(line, "");
+        assert.equal(r.status, 0, r.stderr);
+        assert.deepEqual(r.stdout.trim().split("\n"), ["VTHoop"]);
+      });
+    }
+  }
+});
