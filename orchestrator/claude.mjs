@@ -19,7 +19,7 @@ export const buildArgs = ({ prompt, model, maxTurns, resume, settings }) => [
   prompt,
 ];
 
-export const buildSettings = (project, { base }) => ({
+export const buildSettings = (project, { base, keyFile }) => ({
   permissions: {
     deny: [
       "Bash(gh pr merge:*)",
@@ -43,6 +43,9 @@ export const buildSettings = (project, { base }) => ({
       "Bash(*>> .github/*)",
       "Read(~/.config/software-factory/**)",
       "Bash(*secrets.env*)",
+      "Bash(*GH_TOKEN*)",
+      "Bash(printenv*)",
+      ...(keyFile ? [`Read(${keyFile})`, `Bash(*${keyFile}*)`] : []),
       "Write(.github/**)",
       "Edit(.github/**)",
       ...(project.extraDenials ?? []),

@@ -29,6 +29,13 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
   "base": "main",
   "ciTimeoutMs": 900000,
   "trustedAuthors": ["VTHoop"],
+  "githubApp": {
+    "appId": "123456",
+    "installationId": "78901234",
+    "privateKeyFile": "/Users/factory/.config/software-factory/github-app.pem",
+    "botLogin": "your-factory[bot]",
+    "botUserId": 123456789
+  },
   "entries": [
     {
       "repo": "/Users/you/dev/health-agent",
@@ -40,7 +47,7 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 }
 ```
 
-`model` is passed to every step. `trustedAuthors` are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing. `maxTurns` and `runTimeoutMs` limit each run; hitting either escalates the ticket. Optional settings:
+`model` is passed to every step. `trustedAuthors` and the `githubApp` bot are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing. `githubApp` is the identity the script acts as on GitHub; see *The GitHub App*. `maxTurns` and `runTimeoutMs` limit each run; hitting either escalates the ticket. Optional settings:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -73,9 +80,31 @@ An invocation that starts while another is running exits without acting. Stop th
 
 Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`. Set `needsDocker: true` on an entry whose runs need Docker, such as ones that start Supabase: a poll then fails before it touches a ticket while `docker info` fails, which is how the daemon looks for a while after a reboot, and the next poll tries again.
 
-The GitHub account that runs the script must be a collaborator on the repo, so it can push branches and its reviews count. Its login goes in `trustedAuthors`.
+The GitHub App must be installed on the repo, so it can push branches and its reviews count. See *The GitHub App* for the steps, including the rule on the base branch.
 
 If a team's tickets span repos, give each of that team's entries a `projects` list. An entry that lists an issue's project takes it; the script refuses a config where two entries share a team and one has no `projects`. Tickets are picked from **Ready**, highest priority and then oldest first; one with `needs-owner` or an open blocker is skipped.
+
+## The GitHub App
+
+The script acts on GitHub as a GitHub App, not as a second user account: GitHub suspended a separate account on a public repo, and an App gets narrower, shorter-lived access.
+
+**Register it** (once, as the owner, under *Settings → Developer settings → GitHub Apps*). Give it only these repository permissions: contents (read and write), pull requests (read and write), issues (read and write) and checks (read). No admin, no workflows, no webhook. Choose *Only on this account*, generate a private key, and note the App ID, the bot's login (`<slug>[bot]`) and its user ID (`gh api /users/<slug>%5Bbot%5D --jq .id`).
+
+**Install it on a new repo** (*Install App*, then *Only select repositories*) for exactly the repos in `entries`. The installation ID is in the URL of its settings page. Add the repo's `entries` item and the `githubApp` block above to the config.
+
+**Put the key on the machine** outside the repo (and every other configured repo), mode 600, owned by the user that runs the script, and point `privateKeyFile` at it:
+
+```bash
+install -m 600 github-app.pem ~/.config/software-factory/github-app.pem
+```
+
+A poll refuses to start while the key is readable by group or others, or sits inside a configured repo.
+
+**Add a rule on the base branch** of each public repo the App is installed on (*Settings → Rules → Rulesets*, target the default branch, restrict updates and require a pull request, with no bypass for the App). Then prove it from the machine: a test push as the App to `main` must be rejected.
+
+**Every poll** mints a fresh installation token for only the configured repos, before it touches GitHub, and gives it to `gh`, `git` and the runs (`GH_TOKEN`, with git reading it through `gh auth git-credential`, so it is never in a remote URL). A run starts only on a token minted within the last 30 minutes, which outlives the run limit. A poll that can't mint one logs why to `runs.jsonl` (`"event":"identity-failed"`), exits with code 1 and starts nothing. Commits, PRs and comments show as `<slug>[bot]` with the App's noreply email.
+
+**Revoke or rotate the key:** on the App's settings page, generate a new key, replace the file, then delete the old key there. Deleting a key revokes it at once. To cut the App off entirely, suspend or uninstall it. The key never appears in logs, PRs or Linear; the run settings deny reading it.
 
 ## Follow a run
 

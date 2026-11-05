@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createPublicKey, createVerify, generateKeyPairSync } from "node:crypto";
+import { createVerify, generateKeyPairSync } from "node:crypto";
 import { describe, it } from "node:test";
 import { appJwt, mintInstallationToken, PERMISSIONS } from "../../orchestrator/appauth.mjs";
 
@@ -31,7 +31,7 @@ describe("appJwt", () => {
   });
 
   it("is signed with the App's private key", () => {
-    const ok = createVerify("RSA-SHA256").update(`${header}.${payload}`).verify(createPublicKey(publicKey), Buffer.from(signature, "base64url"));
+    const ok = createVerify("RSA-SHA256").update(`${header}.${payload}`).verify(publicKey, Buffer.from(signature, "base64url"));
     assert.ok(ok);
   });
 });

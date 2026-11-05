@@ -134,7 +134,7 @@ describe("the GitHub App counts as a trusted author", () => {
 
     it(`${name} reads the App's login from SOFTWARE_FACTORY_APP_LOGIN`, () => {
       assert.match(text, /SOFTWARE_FACTORY_APP_LOGIN/);
-      assert.match(text, /author associations? .*or .*GitHub App|GitHub App.*author associations?/is);
+      assert.match(text, /author associations?,? .*or .*GitHub App|GitHub App.*author associations?/is);
     });
 
     it(`${name}: every author-association filter also accepts the App, and nobody else`, () => {

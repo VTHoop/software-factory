@@ -209,6 +209,6 @@ describe("redact private keys", () => {
   });
 
   it("masks an installation token", () => {
-    assert.ok(!redact("x ghs_abcdefghijklmnopqrstuvwxyz1234").includes("ghs_abcdef"));
+    assert.ok(!redact(`x ghs_${"a".repeat(30)}`).includes("ghs_aaa"));
   });
 });

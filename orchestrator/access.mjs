@@ -7,5 +7,13 @@ export const isTrustedPr = (pr, config) =>
   pr.headRepository?.nameWithOwner === config.githubRepo &&
   validBranch(pr.headRefName);
 
+// The App's login is `name[bot]` in the REST API; `gh ... --json` shows a bot as `name` with is_bot set.
+// A plain user called `name` is not the App, so the short form counts only when GitHub says it is a bot.
+const isApp = (login, isBot, appLogin) =>
+  Boolean(appLogin) && (login === appLogin || (isBot === true && login === appLogin.replace(/\[bot\]$/, "")));
+
 export const trustedComments = (comments, config) =>
-  comments.filter((comment) => config.trustedAuthors.includes(comment.author?.login));
+  comments.filter((comment) => {
+    const { login, is_bot: isBot } = comment.author ?? {};
+    return config.trustedAuthors.includes(login) || isApp(login, isBot, config.appLogin);
+  });

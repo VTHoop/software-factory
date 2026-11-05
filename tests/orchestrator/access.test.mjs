@@ -95,6 +95,11 @@ describe("trustedComments with a GitHub App", () => {
     assert.equal(trustedComments([comments[2]], withApp).length, 0);
   });
 
+  it("counts the App as gh --json shows a bot, `name` with is_bot, but not a user of that name", () => {
+    assert.equal(trustedComments([{ author: { login: "factory", is_bot: true }, body: "x" }], withApp).length, 1);
+    assert.equal(trustedComments([{ author: { login: "factory", is_bot: false }, body: "x" }], withApp).length, 0);
+  });
+
   it("trusts no App when none is configured", () => {
     assert.equal(trustedComments([comments[0]], config).length, 0);
   });

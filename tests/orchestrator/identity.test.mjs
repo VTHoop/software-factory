@@ -8,6 +8,7 @@ import { tmp } from "./fakes.mjs";
 const app = { appId: "1", installationId: "2", privateKeyFile: "/keys/app.pem", botLogin: "factory[bot]", botUserId: 4242 };
 const config = { githubApp: app, entries: [{ repo: "/work/repo", githubRepo: "o/r", team: "T" }] };
 const t0 = new Date("2026-11-05T20:00:00Z");
+const LEAK = `ghs_${"b".repeat(30)}`;
 const minutes = (n) => new Date(t0.getTime() + n * 60_000);
 const minted = (at = t0) => ({ token: "ghs_secret_token", mintedAt: at.toISOString() });
 
@@ -140,9 +141,9 @@ describe("pollWithIdentity", () => {
   });
 
   it("never logs a token or key", async () => {
-    const h = harness({ mint: async () => { throw new Error("bad ghs_abcdefghijklmnopqrstuvwxyz and -----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"); } });
+    const h = harness({ mint: async () => { throw new Error(`bad ${LEAK} and -----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----`); } });
     await assert.rejects(pollWithIdentity(h.args));
-    assert.ok(!JSON.stringify(h.logs).includes("ghs_abcdefghijklmnopqrstuvwxyz"));
+    assert.ok(!JSON.stringify(h.logs).includes(LEAK));
     assert.ok(!JSON.stringify(h.logs).includes("BEGIN PRIVATE KEY"));
   });
 
