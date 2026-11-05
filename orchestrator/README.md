@@ -71,11 +71,30 @@ An invocation that starts while another is running exits without acting. Stop th
 
 ## Add a project
 
-Add an entry to `entries` in `config.json` with the repo's local path, its GitHub `owner/name` and its Linear team name. One repo to one team is the normal case, and that is all an entry needs. Its `AGENTS.md` needs a `## Verification` section. Put the project's own deny rules in `extraDenials`. Set `needsDocker: true` on an entry whose runs need Docker, such as ones that start Supabase: a poll then fails before it touches a ticket while `docker info` fails, which is how the daemon looks for a while after a reboot, and the next poll tries again.
+Do these in order. A first poll that runs before step 3 is merged and step 4 is done fails for the whole config, not just the new project.
 
-The GitHub account that runs the script must be a collaborator on the repo, so it can push branches and its reviews count. Its login goes in `trustedAuthors`.
+1. **Linear:** create the **Ready** status in the project's team (the Unstarted group). Moving a ticket there is the approval to build.
+2. **GitHub:** add the agent's account as a collaborator on the repo, so it can push branches and its reviews count. Put its login in `trustedAuthors`.
+3. **Adoption PR, in the project, merged first.** It adds only these, and copies no skill or agent:
+   - a `## Verification` section in `AGENTS.md`, with the commands and which paths each runs for;
+   - a `.mcp.json` with a Linear server whose `Authorization` header names an environment variable, such as `${LINEAR_SAN_API_KEY}`. Only the name is committed;
+   - `extraKnownMarketplaces` and `enabledPlugins` in `.claude/settings.json`, pinned to a release.
+4. **Key:** a Linear key belongs to one workspace. A project in another Linear workspace needs its own key, under the name its `.mcp.json` uses, in the environment that starts the script (on the Mini, the file the launch wrapper loads with `set -a`). The key is never read from `config.json`.
+5. **Clone it as the agent user** under `~/dev`, run `pnpm install` (or the project's install), and check `gh auth status` shows the agent's account. This is the entry's own clone, and the only copy the script reads.
+6. **Config:** add an entry to `entries` with the clone's path, its GitHub `owner/name` and its Linear team name. The team name must match Linear exactly, and `repo` must be the agent's clone. Put the project's own deny rules in `extraDenials`. Set `needsDocker: true` on an entry whose runs need Docker, such as ones that start Supabase: a poll then fails before it touches a ticket while `docker info` fails, which is how the daemon looks for a while after a reboot, and the next poll tries again.
+7. **Rules on `main`:** the deny rules are guardrails, so set branch protection on the base branch.
+
+A run's worktree is cut from a fresh `origin/<base>`, so skills, `AGENTS.md` and the code are always current. The poll itself reads `.mcp.json` from the clone's own working tree to find the Linear key, so after a change to `.mcp.json` run `git pull --ff-only` in the clone.
 
 If a team's tickets span repos, give each of that team's entries a `projects` list. An entry that lists an issue's project takes it; the script refuses a config where two entries share a team and one has no `projects`. Tickets are picked from **Ready**, highest priority and then oldest first; one with `needs-owner` or an open blocker is skipped.
+
+### On a public repo
+
+Strangers can comment and open PRs there. Only comments by `trustedAuthors` count, and a PR from a fork starts nothing, because a PR counts only when its branch lives in the configured repo. Anything a run posts to the repo is public, so check that it holds no private text from Linear.
+
+### A Ready ticket is not picked up
+
+Read the end of `poll.err.log` first. Then check that the team name and the status name match Linear exactly, the ticket has no open blocker or `needs-owner` label, the clone has the merged `.mcp.json`, the key's variable is set where the script starts, and no `pause` file exists.
 
 ## Follow a run
 
