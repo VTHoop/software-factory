@@ -67,6 +67,48 @@ describe("orchestrator README", () => {
     assert.match(section(), /tail -f/);
   });
   it("says the log records the Claude Code version", () => assert.match(section(), /claudeVersion/));
+  describe("adopting a second project", () => {
+    const adding = () => {
+      const text = section();
+      const start = text.search(/^## Add a project/m);
+      assert.ok(start >= 0, "missing the Add a project section");
+      const rest = text.slice(start + 1);
+      const next = rest.search(/^## /m);
+      return next < 0 ? rest : rest.slice(0, next);
+    };
+    it("lists the steps in order, starting with the Ready status on the team", () => {
+      assert.match(adding(), /^1\. .*Ready/m);
+    });
+    it("says the adoption PR with Verification, .mcp.json and plugin settings merges before the first poll", () => {
+      for (const word of ["## Verification", ".mcp.json", "enabledPlugins", "merged"]) {
+        assert.ok(adding().includes(word), `missing ${word}`);
+      }
+    });
+    it("says the project's own Linear workspace needs its own key, set in the environment that starts the script", () => {
+      assert.match(adding(), /another Linear workspace|different Linear workspace/i);
+      assert.match(adding(), /LINEAR_\w+_API_KEY/);
+    });
+    it("says to clone the repo for the agent user, install its dependencies and check gh is signed in as the agent", () => {
+      assert.match(adding(), /clone/i);
+      assert.match(adding(), /pnpm install|install its dependencies/i);
+      assert.match(adding(), /gh auth status/);
+    });
+    it("says the team name must match Linear exactly and repo must be the agent's own clone", () => {
+      assert.match(adding(), /exactly/i);
+      assert.match(adding(), /own clone|agent's clone|the clone/i);
+    });
+    it("says the poll reads .mcp.json from the clone, so the clone must be pulled after .mcp.json changes", () => {
+      assert.match(adding(), /git pull --ff-only|pull/);
+      assert.match(adding(), /clone.*\.mcp\.json|\.mcp\.json.*clone/is);
+    });
+    it("says what to check when a Ready ticket is not picked up", () => {
+      assert.match(adding(), /poll\.err\.log|not picked up/i);
+    });
+    it("says a public repo needs branch protection and that fork PRs and strangers' comments start nothing", () => {
+      assert.match(adding(), /public repo/i);
+      assert.match(adding(), /fork/i);
+    });
+  });
   it("is linked from the main README", () => {
     assert.match(read("README.md"), /orchestrator\/README\.md/);
   });
