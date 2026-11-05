@@ -31,6 +31,7 @@ export const mintInstallationToken = async ({ app, repos, now, fetch = globalThi
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({ repositories: repos.map((r) => r.split("/").pop()), permissions: PERMISSIONS }),
     });
   } catch (error) {
@@ -38,5 +39,6 @@ export const mintInstallationToken = async ({ app, repos, now, fetch = globalThi
   }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`GitHub App token request failed: HTTP ${response.status} ${body.message ?? ""}`.trim());
+  if (!body.token) throw new Error("GitHub App token request failed: GitHub returned no token");
   return { token: body.token, mintedAt: now.toISOString() };
 };

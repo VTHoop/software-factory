@@ -1,8 +1,10 @@
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { maskSecrets } from "./checks.mjs";
 
 export const MAX_TOKEN_AGE_MS = 30 * 60_000;
+// An installation token lasts an hour; calls stop a little before that.
+export const TOKEN_EXPIRY_MS = 55 * 60_000;
 
 export const botEmail = (app) => `${app.botUserId}+${app.botLogin}@users.noreply.github.com`;
 
@@ -32,8 +34,19 @@ export const assertKeyFile = (file, repos, stat = statSync) => {
     throw new Error(`Cannot read the GitHub App's private key at ${file}`);
   }
   if (info.mode & 0o077) throw new Error(`${file} is readable by group or others; run chmod 600 on it`);
-  const path = resolve(file);
-  if (repos.some((repo) => path.startsWith(resolve(repo) + sep))) throw new Error(`${file} is inside a repo; keep the key outside it`);
+  if (typeof process.getuid === "function" && info.uid !== process.getuid()) {
+    throw new Error(`${file} is owned by another user; it must be owned by the user that runs the script`);
+  }
+  // Symlinks are followed, so a link can't hide a key inside a repo.
+  const real = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return resolve(p);
+    }
+  };
+  const path = real(file);
+  if (repos.some((repo) => path.startsWith(real(repo) + sep))) throw new Error(`${file} is inside a repo; keep the key outside it`);
 };
 
 // Mints a fresh token for this poll before anything touches GitHub. If it can't, it logs why,
@@ -51,11 +64,16 @@ export const pollWithIdentity = async ({ config, now, mint, checkKey, poll, log 
     log({ at: now().toISOString(), event: "identity-failed", reason });
     throw new Error(reason);
   }
+  const age = () => now().getTime() - new Date(minted.mintedAt).getTime();
   const identity = {
+    // For starting a run: the token must be under 30 minutes old.
     env: () => {
-      if (now().getTime() - new Date(minted.mintedAt).getTime() > MAX_TOKEN_AGE_MS) {
-        throw new Error("The GitHub App token is older than 30 minutes; the next poll mints a new one");
-      }
+      if (age() > MAX_TOKEN_AGE_MS) throw new Error("The GitHub App token is older than 30 minutes; the next poll mints a new one");
+      return githubEnv(app, minted.token);
+    },
+    // For every other call in the poll (gh, fetching, cleanup): good until the token nears its end.
+    callEnv: () => {
+      if (age() > TOKEN_EXPIRY_MS) throw new Error("The GitHub App token has expired; the next poll mints a new one");
       return githubEnv(app, minted.token);
     },
   };

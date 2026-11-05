@@ -165,11 +165,15 @@ describe("the App filters work whether or not the variable is set", async () => 
     { authorAssociation: "OWNER", author: { login: "VTHoop", is_bot: false }, author_association: "OWNER", user: { login: "VTHoop" } },
   ]);
   const run = (line, appLogin) => {
-    const expr = line.match(/select\((.*)\)\s*$/)[1];
+    const start = line.indexOf("select(") + "select(".length;
+    let depth = 1;
+    let end = start;
+    for (; depth > 0; end++) depth += line[end] === "(" ? 1 : line[end] === ")" ? -1 : 0;
+    const expr = line.slice(start, end - 1);
     const env = { ...process.env };
     delete env.SOFTWARE_FACTORY_APP_LOGIN;
     if (appLogin !== undefined) env.SOFTWARE_FACTORY_APP_LOGIN = appLogin;
-    const r = spawnSync("jq", ["-c", `.[] | select(${expr}) | (.author.login)`, "-"], { input: comments, env, encoding: "utf8" });
+    const r = spawnSync("jq", ["-r", `.[] | select(${expr}) | (.author.login // .user.login)`, "-"], { input: comments, env, encoding: "utf8" });
     return r;
   };
 
