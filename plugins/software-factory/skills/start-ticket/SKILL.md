@@ -105,6 +105,8 @@ With `--unattended`, the workflow above runs with these changes. Where they diff
 - there is no AC section, or AC that two engineers would implement differently (the ticket needs refining);
 - `AGENTS.md` has no `## Verification` section.
 
+**Commands.** The run starts in the worktree, so stay there. Never `cd`, never chain commands with `;`, `&&` or `|` when one call each would do, and use paths relative to the worktree. To read or search files, use the Read and Grep tools, not `cat`, `head` or `grep`. The headless permission check refuses compound commands and absolute paths, and a refusal ends the run as escalated.
+
 **Something only the owner can provide** stops the run only if the work can't be implemented and verified without it. Otherwise carry on and list it under `### Before testing` in the PR.
 
 **The plan.** Replace step 12: post the AC → test table and the approach to the Linear issue as a comment (`save_comment`), and do not wait for approval. Then do step 13's status move, skipping the `🚀 Starting` comment.
