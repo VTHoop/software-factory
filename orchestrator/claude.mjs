@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
-export const buildArgs = ({ prompt, model, maxTurns, resume, settings }) => [
+export const buildArgs = ({ prompt, model, maxTurns, maxRunCostUsd, resume, settings }) => [
   "-p",
   "--output-format",
   "json",
@@ -14,12 +14,33 @@ export const buildArgs = ({ prompt, model, maxTurns, resume, settings }) => [
   "none",
   "--max-turns",
   String(maxTurns),
+  // Turns count only the parent session; a review's spend is in its subagents, so only a budget bounds it.
+  ...(maxRunCostUsd ? ["--max-budget-usd", String(maxRunCostUsd)] : []),
   ...(settings ? ["--settings", settings] : []),
   ...(resume ? ["--resume", resume] : []),
   prompt,
 ];
 
-export const buildSettings = (project, { base, keyFile }) => ({
+// A review run posts nothing: the script posts the file it writes, so one round is one comment.
+// The leading `*` also catches a command behind `cd x &&` or an env prefix. This is a guardrail,
+// not enforcement: the run's token can still write.
+const POSTING = [
+  "Bash(*gh pr comment*)",
+  "Bash(*gh * pr comment*)",
+  "Bash(*gh issue comment*)",
+  "Bash(*gh * issue comment*)",
+  "Bash(*gh pr review*)",
+  "Bash(*gh * pr review*)",
+  "Bash(*gh pr edit*)",
+  "Bash(*gh * pr edit*)",
+  "Bash(*gh issue edit*)",
+  "Bash(*gh * issue edit*)",
+  "Bash(*gh api *comments*)",
+  "Bash(*gh api *reviews*)",
+  "Bash(*gh api graphql*)",
+];
+
+export const buildSettings = (project, { base, keyFile, review }) => ({
   permissions: {
     deny: [
       "Bash(gh pr merge:*)",
@@ -55,13 +76,14 @@ export const buildSettings = (project, { base, keyFile }) => ({
       "Write(.github/**)",
       "Edit(.github/**)",
       ...(project.extraDenials ?? []),
+      ...(review ? POSTING : []),
     ],
   },
 });
 
-// One settings file per repo, named from a hash of the whole path.
-export const settingsFile = (stateDir, repo) =>
-  join(stateDir, `settings-${createHash("sha256").update(repo).digest("hex").slice(0, 16)}.json`);
+// One settings file per repo, named from a hash of the whole path, and one more for its review runs.
+export const settingsFile = (stateDir, repo, step) =>
+  join(stateDir, `settings-${createHash("sha256").update(repo).digest("hex").slice(0, 16)}${step === "review" ? "-review" : ""}.json`);
 
 const GRACE_MS = 2000;
 const live = new Set();

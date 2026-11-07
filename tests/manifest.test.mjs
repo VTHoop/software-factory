@@ -20,6 +20,13 @@ describe("marketplace and plugin", () => {
     assert.match(plugin.version, /^\d+\.\d+\.\d+$/);
   });
 
+  it("pins the README's install example to the current release", () => {
+    const { version } = json("plugins", "software-factory", ".claude-plugin", "plugin.json");
+    const pins = [...read("README.md").matchAll(/"ref": "(v[^"]+)"/g)].map((m) => m[1]);
+    assert.ok(pins.length > 0, "no pinned ref in the README");
+    for (const pin of pins) assert.equal(pin, `v${version}`);
+  });
+
   it("passes claude plugin validate", { skip: !hasClaude && "claude not on PATH" }, () => {
     for (const target of [".", "plugins/software-factory"]) {
       execFileSync("claude", ["plugin", "validate", target], { cwd: root, stdio: "pipe" });

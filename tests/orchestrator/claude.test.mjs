@@ -37,6 +37,12 @@ describe("buildArgs", () => {
     assert.ok(!args.includes("--resume"));
   });
 
+  it("caps a run's spend when given a ceiling, and passes no cap otherwise", () => {
+    const capped = buildArgs({ prompt: "p", model: "sonnet", maxTurns: 1, maxRunCostUsd: 3 });
+    assert.equal(capped[capped.indexOf("--max-budget-usd") + 1], "3");
+    assert.ok(!args.includes("--max-budget-usd"));
+  });
+
   it("passes the prompt as one argument, never through a shell", () => {
     assert.ok(args.includes("/software-factory:pr-review 7 --unattended"));
   });
@@ -140,7 +146,59 @@ describe("runClaude", () => {
   });
 });
 
+describe("buildSettings for a review run", () => {
+  const review = buildSettings(project, { base: "main", review: true }).permissions.deny;
+  const other = buildSettings(project, { base: "main" }).permissions.deny;
+  const posting = [
+    "gh pr comment 7 --body-file /tmp/r.md",
+    "gh -R o/r pr comment 7 --body-file x",
+    "gh pr review 7 --comment -b x",
+    "gh api --method POST repos/o/r/issues/7/comments --input x",
+    "gh api --method POST repos/o/r/pulls/7/reviews --input x",
+    "gh issue comment 7 --body x",
+    "gh -R o/r issue comment 7 -b x",
+    "gh api graphql -f query='mutation { addComment(input: {}) { clientMutationId } }'",
+    "gh api graphql -f query='mutation { addPullRequestReview(input: {}) { clientMutationId } }'",
+    "gh pr edit 7 --body x",
+    "gh -R o/r pr edit 7 --body-file x",
+    "gh issue edit 7 --body x",
+    "GH_DEBUG=1 gh pr comment 7 -b x",
+    "cd /tmp && gh pr comment 7 -b x",
+  ];
+  // What an unattended review does run: none of it may be caught.
+  const reads = [
+    "gh pr view 7 --json comments --jq '.comments[]'",
+    "gh pr view 7 --json number,title,body,state,isDraft,author,headRefName,baseRefName,url",
+    "gh pr list --head b --state open --json number",
+    "gh repo view --json defaultBranchRef",
+    "git diff origin/main...origin/b --name-only",
+    "git show origin/b:orchestrator/steps.mjs",
+  ];
+  const matches = (rules, command) =>
+    rules.some((r) => r.startsWith("Bash(") && new RegExp(`^${r.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(command));
+
+  it("denies every way of posting to the PR, because the script posts the review", () => {
+    for (const command of posting) assert.ok(matches(review, command), command);
+  });
+
+  it("lets a review run read the PR and the diff", () => {
+    for (const command of reads) assert.ok(!matches(review, command), command);
+  });
+
+  it("leaves posting allowed in other runs, where address-review replies", () => {
+    assert.ok(!matches(other, "gh pr comment 7 --body-file /tmp/r.md"));
+  });
+
+  it("keeps every other denial", () => {
+    for (const rule of other) assert.ok(review.includes(rule), rule);
+  });
+});
+
 describe("settingsFile", () => {
+  it("is different for a review run of the same repo", () => {
+    assert.notEqual(settingsFile("/state", "/r/x", "review"), settingsFile("/state", "/r/x"));
+  });
+
   it("is different for two repos that share a long path prefix", () => {
     const a = settingsFile("/state", "/Users/vthoop/dev/health-agent");
     const b = settingsFile("/state", "/Users/vthoop/dev/software-factory");

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 // One poll: run whatever step is due, then exit. Start it by hand or from a loop.
-import { mkdirSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { dockerReady, signedIn } from "./checks.mjs";
-import { buildArgs, killRunning, runClaude, settingsFile } from "./claude.mjs";
+import { buildArgs, killRunning, runClaude } from "./claude.mjs";
 import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "./config.mjs";
 import { escalate } from "./escalate.mjs";
 import { exec } from "./exec.mjs";
 import { mintInstallationToken } from "./appauth.mjs";
 import { createGithub } from "./github.mjs";
 import { assertKeyFile, pollWithIdentity } from "./identity.mjs";
-import { claudeEnv, gitEnv, githubConfigFor, settingsFor } from "./wiring.mjs";
+import { claudeEnv, gitEnv, githubConfigFor, reviewFiles, writeSettings } from "./wiring.mjs";
 import { handoff } from "./handoff.mjs";
 import { collectIssues, createLinear } from "./linear.mjs";
 import { appendLog } from "./log.mjs";
@@ -54,9 +53,7 @@ const main = async () => {
   const depsByEntry = new Map();
   const depsFor = (entry) => {
     if (depsByEntry.has(entry)) return depsByEntry.get(entry);
-    const settings = settingsFile(paths.state, entry.repo);
-    mkdirSync(paths.state, { recursive: true });
-    writeFileSync(settings, JSON.stringify(settingsFor(entry, config)));
+    const settingsFor = writeSettings(paths.state, entry, config);
     const deps = {
       config: { ...config, repo: entry.repo },
       claudeVersion,
@@ -67,8 +64,10 @@ const main = async () => {
         addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees, gitEnv(identity)),
         removeWorktree,
       },
-      claude: async ({ prompt, cwd, resume, model, maxTurns, timeoutMs }) => {
-        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, resume, settings }), cwd, timeoutMs, env: claudeEnv(identity) });
+      files: reviewFiles,
+      claude: async ({ prompt, cwd, resume, step, model, maxTurns, maxRunCostUsd, timeoutMs }) => {
+        const args = buildArgs({ prompt, model, maxTurns, maxRunCostUsd, resume, settings: settingsFor(step) });
+        const result = await runClaude({ args, cwd, timeoutMs, env: claudeEnv(identity) });
         if (result.timedOut) throw Object.assign(new Error("Run timed out"), { timedOut: true });
         if (result.resumeFailed) throw Object.assign(new Error("Session could not be resumed"), { code: "RESUME_FAILED" });
         if (!result.output) throw new Error(result.error);

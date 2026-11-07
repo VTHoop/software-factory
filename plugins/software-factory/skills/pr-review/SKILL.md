@@ -1,11 +1,11 @@
 ---
 name: pr-review
-description: Run a project-aware, multi-lens review of a GitHub pull request in the current repo. Spawns up to six parallel reviewers (requirements coverage, pattern conformance, quality/security/a11y/tests, performance & resource lifecycle, broader impact, modernization), validates each finding against the diff to kill false positives, synthesizes one ranked comment, and posts it back to the PR. Works in any repo or language — reviewers read the host repo's own conventions and stack.
+description: Run a project-aware, multi-lens review of a GitHub pull request in the current repo. Spawns up to six parallel reviewers (requirements coverage, pattern conformance, quality/security/a11y/tests, performance & resource lifecycle, broader impact, modernization), validates each finding against the diff to kill false positives, synthesizes one ranked comment, and posts it back to the PR (an unattended run writes it to a file, and the script that started it posts it). Works in any repo or language — reviewers read the host repo's own conventions and stack.
 argument-hint: [PR number, branch, Linear key or PR URL — defaults to the current branch's PR] [--unattended]
 ---
 
 # Purpose
-A team-facing review of a GitHub PR — the "second set of eyes" another engineer would run before approving. Up to six parallel specialist reviewers each apply one lens; this orchestrator runs an eligibility pre-flight, validates findings against the diff, arbitrates root-cause judgment, dedupes, ranks by severity, and posts one synthesized comment.
+A team-facing review of a GitHub PR — the "second set of eyes" another engineer would run before approving. Up to six parallel specialist reviewers each apply one lens; this orchestrator runs an eligibility pre-flight, validates findings against the diff, arbitrates root-cause judgment, dedupes, ranks by severity, and posts one synthesized comment. An unattended run leaves the posting to the script that started it.
 
 It is **project-aware without being project-specific**: each reviewer reads the host repo's conventions and stack at runtime (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/`, docs, version manifests, lint configs) rather than carrying one stack's rules.
 
@@ -138,13 +138,13 @@ Before arbitrating, **verify every Blocker and Major finding against the actual 
 
 14. Format the comment per **Output format** below.
 15. Show it to the user. Ask: *"Post this to PR #X? Edit anything first?"*
-16. **Optional inline comments:** if the user wants them, post the actionable Blocker/Major findings inline at their `file:line` as a single review:
+16. **Optional inline comments (owner session only):** if the user wants them, post the actionable Blocker/Major findings inline at their `file:line` as a single review:
    ```bash
    gh api --method POST repos/{owner}/{repo}/pulls/<n>/reviews \
      --input <body.json>   # {"event":"COMMENT","comments":[{"path":…,"line":…,"body":…}]}
    ```
    Write the JSON to a temp file rather than inlining it on the command line. GitHub supports **committable suggestions** — where a fix is a concrete one-to-few-line change, phrase it as a ` ```suggestion ` block so the author can apply it in one click. The synthesized summary comment is always posted as the backbone — inline anchors supplement it, they don't replace it.
-17. On approval, post the summary: write it to a temp file and run `gh pr comment <n> --body-file <file>` (never `--body` with an inlined multi-line string). Accept edits and re-show before posting. Confirm and link the PR.
+17. **Owner session only.** On approval, post the summary: write it to a temp file and run `gh pr comment <n> --body-file <file>` (never `--body` with an inlined multi-line string). Accept edits and re-show before posting. Confirm and link the PR.
 
 # Unattended run
 
@@ -165,9 +165,9 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 
 **Continue** when the PR was already reviewed, or was authored by the current account, without asking.
 
-**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. A reviewer that fails to run, or still has incomplete coverage after its second try, is a stop, not a smaller review.
+**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. Spawn each lens at most twice: once, and once more only for the coverage retry in Phase 3. A reviewer that fails to run, or still has incomplete coverage after its second try, is a stop, not a smaller review. The PR is reviewed once per run: never start a second round of reviewers, and never go back to Phase 1 after Phase 6, even to refine or re-check the comment.
 
-**Posting.** Post the summary comment without asking for confirmation, with `gh pr comment <n> --body-file <file>`, in the Output format below, and no inline comments. Then end with the finished result, whatever the **Overall** line says.
+**Posting.** Post nothing to the PR: no summary comment, no inline comments, no `gh pr comment`, `gh pr review` or `gh api` write. Instead, write the summary comment, in the Output format below, to `.software-factory/review.md` in the checkout (create the directory), once. The script that started the run posts it. Then end with the finished result, whatever the **Overall** line says.
 <!-- unattended:end -->
 
 # Output format
@@ -196,7 +196,7 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 Omit empty sections. If everything is clean: heading + "Overall: Approved" + a one-sentence summary.
 
 # Tool usage
-- **`gh` CLI:** `gh pr view`, `gh pr list`, `gh pr comment --body-file`, `gh repo view --json defaultBranchRef`, `gh api user --jq .login` (owner sessions only; unattended runs use `SOFTWARE_FACTORY_APP_LOGIN`), `gh auth status`. Optional inline review: `gh api --method POST repos/{owner}/{repo}/pulls/<n>/reviews --input <file>`.
+- **`gh` CLI:** `gh pr view`, `gh pr list`, `gh pr comment --body-file` (owner sessions only), `gh repo view --json defaultBranchRef`, `gh api user --jq .login` (owner sessions only; unattended runs use `SOFTWARE_FACTORY_APP_LOGIN`), `gh auth status`. Optional inline review, owner sessions only: `gh api --method POST repos/{owner}/{repo}/pulls/<n>/reviews --input <file>`.
 - **Linear `get_issue`** (any server name — match the suffix): fetch the ticket in Phase 1 step 5; its description is embedded in the requirements reviewer's prompt.
 - **Bash:** `command -v gh`, `git fetch origin`, `git diff <a>...<b>`, `git diff --name-only`, `git rev-parse --verify`, `git branch --show-current`, `git symbolic-ref --quiet refs/remotes/origin/HEAD`.
 - **Read:** `${CLAUDE_PROJECT_DIR}/.claude/flywheel.md` (if present); project files as needed.
@@ -210,7 +210,7 @@ Omit empty sections. If everything is clean: heading + "Overall: Approved" + a o
 - **Eligibility pre-flight** — don't review merged/closed PRs; flag drafts and self-authored PRs.
 - **Validate before ranking** — every Blocker/Major must survive a confirm-or-kill check against the diff.
 - **One summary comment per review.** Inline anchors supplement; they don't fragment the review.
-- **Always confirm before posting** — PR comments are visible to anyone with repo access. An unattended run posts on the flag instead.
+- **Always confirm before posting** — PR comments are visible to anyone with repo access. An unattended run posts nothing: it writes the comment to a file, and the script that started it posts it.
 - **Don't duplicate prior trusted review comments.**
 - **Modernization is always non-blocking**, under its own heading.
 

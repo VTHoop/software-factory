@@ -19,6 +19,11 @@ export const loadConfig = (file) => {
   const config = JSON.parse(readFileSync(file, "utf8"));
   for (const key of ["model", "maxTurns", "runTimeoutMs"]) required(config, key);
   if (!Array.isArray(config.entries)) throw new Error("config: entries is required");
+  // Zero or a string would otherwise mean no cap at all, without a word.
+  const cap = config.maxRunCostUsd;
+  if (cap !== undefined && !(typeof cap === "number" && Number.isFinite(cap) && cap > 0)) {
+    throw new Error("config: maxRunCostUsd, if given, must be a number above 0");
+  }
   config.entries.forEach((entry, i) => {
     if (!entry.repo) throw new Error(`config: entries[${i}].repo is required`);
     if (!entry.team) throw new Error(`config: entries[${i}].team is required`);

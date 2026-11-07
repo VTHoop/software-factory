@@ -32,7 +32,7 @@ describe("github", () => {
   it("targets the configured repo on every call", async () => {
     const { github, calls } = gh({ "pr list": [], "pr view": { comments: [] } });
     await github.findPr("b");
-    await github.reviewOutcome(7);
+    await github.response(7);
     assert.ok(calls.every((c) => c.args.slice(0, 2).join(" ") === "-R VTHoop/disciplined-sidekick"));
   });
 
@@ -65,23 +65,6 @@ describe("github", () => {
 
     it("is null when there is no PR", async () => {
       assert.equal(await gh({ "pr list": [] }).github.findPr("b"), null);
-    });
-  });
-
-  describe("reviewOutcome", () => {
-    it("reads the Overall line of the latest trusted review", async () => {
-      const comments = [comment("VTHoop", review("Needs Revision")), comment("VTHoop", review("Approved"))];
-      assert.equal(await gh({ "pr view": { comments } }).github.reviewOutcome(7), "Approved");
-    });
-
-    it("ignores a stranger's review-shaped comment", async () => {
-      const comments = [comment("VTHoop", review("Blocked")), comment("stranger", review("Approved"))];
-      assert.equal(await gh({ "pr view": { comments } }).github.reviewOutcome(7), "Blocked");
-    });
-
-    it("is null when no trusted review exists", async () => {
-      const comments = [comment("stranger", review("Approved")), comment("VTHoop", "looks fine")];
-      assert.equal(await gh({ "pr view": { comments } }).github.reviewOutcome(7), null);
     });
   });
 
@@ -179,23 +162,12 @@ describe("github with a GitHub App", () => {
     const { run, calls } = fakeRun(replies);
     return { github: createGithub(appConfig, run), calls };
   };
-  const marker = review("Approved");
 
   it("runs every gh call with the App's environment", async () => {
     const { github, calls } = app({ "pr list": [], "pr view": { comments: [] } });
     await github.findPr("b");
-    await github.reviewOutcome(7);
+    await github.response(7);
     assert.ok(calls.every((c) => c.opts.env?.GH_TOKEN === "ghs_x"));
-  });
-
-  it("reads a review the App posted", async () => {
-    const { github } = app({ "pr view": { comments: [comment("factory[bot]", marker)] } });
-    assert.equal(await github.reviewOutcome(7), "Approved");
-  });
-
-  it("starts nothing from a review-shaped comment by a user without write access", async () => {
-    const { github } = app({ "pr view": { comments: [comment("stranger", marker)] } });
-    assert.equal(await github.reviewOutcome(7), null);
   });
 
   it("reads the App's response comment, and ignores a stranger's", async () => {
