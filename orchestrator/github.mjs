@@ -19,7 +19,11 @@ export const createGithub = (config, run = exec) => {
     return (await run("gh", full, { input, env: typeof config.env === "function" ? config.env() : config.env, timeoutMs: GH_TIMEOUT_MS })).stdout;
   };
   const json = async (args) => JSON.parse(await gh(args));
-  const comments = async (pr) => trustedComments((await json(["pr", "view", String(pr), "--json", "comments"])).comments, config);
+  // From the REST API, every page: see trustedComments for why not `gh pr view --json comments`.
+  const comments = async (pr) => {
+    const pages = await json(["api", "--paginate", "--slurp", `repos/${config.githubRepo}/issues/${pr}/comments?per_page=100`]);
+    return trustedComments(pages.flat().map((c) => ({ author: { login: c.user?.login }, body: c.body })), config);
+  };
 
   return {
     async findPr(branch) {
