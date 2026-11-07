@@ -79,6 +79,7 @@ export const makeDeps = (over = {}) => {
       read: record("files.read", () => reviewBody()),
     },
     claude: record("claude", () => output()),
+    sleep: record("sleep"),
     ...over,
   };
   return deps;

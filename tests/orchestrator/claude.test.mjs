@@ -155,12 +155,34 @@ describe("buildSettings for a review run", () => {
     "gh pr review 7 --comment -b x",
     "gh api --method POST repos/o/r/issues/7/comments --input x",
     "gh api --method POST repos/o/r/pulls/7/reviews --input x",
+    "gh issue comment 7 --body x",
+    "gh -R o/r issue comment 7 -b x",
+    "gh api graphql -f query='mutation { addComment(input: {}) { clientMutationId } }'",
+    "gh api graphql -f query='mutation { addPullRequestReview(input: {}) { clientMutationId } }'",
+    "gh pr edit 7 --body x",
+    "gh -R o/r pr edit 7 --body-file x",
+    "gh issue edit 7 --body x",
+    "GH_DEBUG=1 gh pr comment 7 -b x",
+    "cd /tmp && gh pr comment 7 -b x",
+  ];
+  // What an unattended review does run: none of it may be caught.
+  const reads = [
+    "gh pr view 7 --json comments --jq '.comments[]'",
+    "gh pr view 7 --json number,title,body,state,isDraft,author,headRefName,baseRefName,url",
+    "gh pr list --head b --state open --json number",
+    "gh repo view --json defaultBranchRef",
+    "git diff origin/main...origin/b --name-only",
+    "git show origin/b:orchestrator/steps.mjs",
   ];
   const matches = (rules, command) =>
     rules.some((r) => r.startsWith("Bash(") && new RegExp(`^${r.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(command));
 
   it("denies every way of posting to the PR, because the script posts the review", () => {
     for (const command of posting) assert.ok(matches(review, command), command);
+  });
+
+  it("lets a review run read the PR and the diff", () => {
+    for (const command of reads) assert.ok(!matches(review, command), command);
   });
 
   it("leaves posting allowed in other runs, where address-review replies", () => {

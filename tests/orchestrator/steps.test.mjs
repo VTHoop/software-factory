@@ -205,15 +205,15 @@ describe("review guards", () => {
   it("removes any review file before the run, so a file committed on the PR can't be posted", async () => {
     const deps = makeDeps({ claude: async (c) => (deps.calls.push(["claude", c]), reviewOutput()) });
     await review(withPr, deps);
-    assert.deepEqual(deps.calls.find((c) => c[0] === "files.remove").slice(1), [file]);
+    assert.deepEqual(deps.calls.find((c) => c[0] === "files.remove").slice(1), [file, "/work/review/pr-7"]);
     assert.ok(names(deps).indexOf("files.remove") < names(deps).indexOf("claude"));
   });
 
   it("posts the review file the run wrote, exactly once, and records its outcome", async () => {
     const deps = makeDeps({ claude: async () => reviewOutput() });
-    deps.files.read = async (path) => (deps.calls.push(["files.read", path]), reviewBody("Needs Revision"));
+    deps.files.read = async (...args) => (deps.calls.push(["files.read", ...args]), reviewBody("Needs Revision"));
     const result = await review(withPr, deps);
-    assert.deepEqual(deps.calls.find((c) => c[0] === "files.read").slice(1), [file]);
+    assert.deepEqual(deps.calls.find((c) => c[0] === "files.read").slice(1), [file, "/work/review/pr-7"]);
     assert.deepEqual(posted(deps).map((c) => c.slice(1)), [[7, reviewBody("Needs Revision")]]);
     assert.equal(result.phase, "reviewed");
     assert.equal(result.outcome, "Needs Revision");
@@ -244,6 +244,32 @@ describe("review guards", () => {
       assert.equal(result.kind, "no-review");
       assert.equal(posted(deps).length, 0);
     }
+  });
+
+  it("retries a post that fails, and counts the review once it lands", async () => {
+    const deps = makeDeps({ claude: async () => reviewOutput() });
+    let tries = 0;
+    deps.github.comment = async (...args) => {
+      deps.calls.push(["github.comment", ...args]);
+      if (++tries === 1) throw new Error("gh: HTTP 502");
+    };
+    const result = await review(withPr, deps);
+    assert.equal(posted(deps).length, 2);
+    assert.equal(result.phase, "reviewed");
+  });
+
+  it("fails the ticket instead of throwing when the post keeps failing, so recovery doesn't rerun the reviewers", async () => {
+    const deps = makeDeps({ claude: async () => reviewOutput() });
+    deps.github.comment = async (...args) => {
+      deps.calls.push(["github.comment", ...args]);
+      throw new Error("gh: HTTP 502");
+    };
+    const result = await review(withPr, deps);
+    assert.equal(posted(deps).length, 3);
+    assert.equal(result.phase, "failed");
+    assert.equal(result.kind, "post");
+    assert.match(result.reason, /502/);
+    assert.ok(names(deps).includes("git.removeWorktree"));
   });
 
   it("posts nothing when the run fails", async () => {

@@ -45,6 +45,14 @@ describe("loadConfig", () => {
   const entry = { repo: "/work/sidekick", githubRepo: "VTHoop/disciplined-sidekick", team: "Health Agent" };
   const base = { model: "sonnet", maxTurns: 80, runTimeoutMs: 1800000, trustedAuthors: ["VTHoop"], entries: [entry] };
 
+  it("takes maxRunCostUsd only as a number above zero, or not at all", () => {
+    for (const bad of [0, "", -1, "3", Number.NaN, null]) {
+      assert.throws(() => loadConfig(write({ ...base, maxRunCostUsd: bad })), /maxRunCostUsd/, String(bad));
+    }
+    assert.equal(loadConfig(write({ ...base, maxRunCostUsd: 2.5 })).maxRunCostUsd, 2.5);
+    assert.equal(loadConfig(write(base)).maxRunCostUsd, undefined);
+  });
+
   it("holds the model in one value", () => {
     assert.equal(loadConfig(write(base)).model, "sonnet");
   });
