@@ -17,8 +17,8 @@ describe("settingsFor", () => {
   });
 
   it("denies posting only for the review step", () => {
-    assert.ok(settingsFor(entry, config, "review").permissions.deny.some((d) => d.startsWith("Bash(gh pr comment")));
-    assert.ok(!settingsFor(entry, config).permissions.deny.some((d) => d.startsWith("Bash(gh pr comment")));
+    assert.ok(settingsFor(entry, config, "review").permissions.deny.some((d) => d.includes("gh pr comment")));
+    assert.ok(!settingsFor(entry, config).permissions.deny.some((d) => d.includes("gh pr comment")));
   });
 
   it("is the same as before when no App is configured", () => {
@@ -103,12 +103,12 @@ describe("reviewFiles", () => {
     assert.equal(reviewFiles.read(file, root), "body");
   });
 
-  it("removes the file, and does nothing when there is none", () => {
+  it("removes the file with its directory, and does nothing when there is none", () => {
     const { root, file } = checkout();
-    reviewFiles.remove(file, root);
     writeFileSync(file, "body");
     reviewFiles.remove(file, root);
     assert.ok(!existsSync(file));
+    reviewFiles.remove(file, root);
   });
 
   it("removes a directory symlink without touching what it points at", () => {

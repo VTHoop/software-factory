@@ -5,7 +5,7 @@ A script that takes a **Ready** Linear ticket to a reviewed, addressed pull requ
 For a ticket it:
 
 1. moves the issue to **In Progress**, then runs `/software-factory:start-ticket <key> --unattended` in a new worktree;
-2. runs `/software-factory:pr-review <n> --unattended` in a new session and its own checkout, and counts the review only if all six `sdlc-review-*` agents started and finished. The run is denied every way of posting to the PR; it writes its comment to `.software-factory/review.md`, and the script posts that file once;
+2. runs `/software-factory:pr-review <n> --unattended` in a new session and its own checkout, and counts the review only if all six `sdlc-review-*` agents started and finished. The run's settings deny the ways `gh` offers to post to the PR, a guardrail rather than enforcement, since its token can still write. It writes its comment to `.software-factory/review.md`, and the script posts that file once, retrying a failed post twice before it escalates;
 3. resumes the implementer session with `/software-factory:address-review <n> --unattended` (a fresh session if it can’t be resumed) after the first review whatever its outcome, because an Approved review can still carry findings. A review that was not Approved gets one more review, at most two reviews in all; an Approved one goes straight to the handoff;
 4. waits for CI on the head commit and sends a handoff notification, then moves the issue to **In Review**.
 
@@ -19,7 +19,7 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 | --- | --- |
 | `~/.config/software-factory/config.json` | The settings below. |
 | `~/.config/software-factory/secrets.env` | `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN`, one `NAME=value` per line. Mode 600. |
-| `~/.local/state/software-factory/` | `state.json`, `runs.jsonl`, the lock and pause files, the worktrees, and one `settings-<hash>.json` per repo (the deny rules each run is started with; the script rewrites them before every run). |
+| `~/.local/state/software-factory/` | `state.json`, `runs.jsonl`, the lock and pause files, the worktrees, and two settings files per repo (the deny rules each run is started with; the script rewrites them before every run): `settings-<hash>.json`, and `settings-<hash>-review.json`, which also denies posting, for review runs. |
 
 ```json
 {
@@ -54,7 +54,7 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 | `base` | `main` | The branch worktrees start from. |
 | `ciTimeoutMs` | 900000 | How long the handoff waits for CI on the head commit. |
 | `ciIntervalMs` | 30000 | How often it checks CI while it waits. |
-| `maxRunCostUsd` | none | A spend ceiling for each run, in USD. `maxTurns` cannot bound a review, because its cost is in the six reviewer subagents, not in the parent's turns. A run that reaches it stops with an error and the ticket escalates. `node orchestrator/report.mjs` shows what each ticket cost. |
+| `maxRunCostUsd` | none | A spend ceiling for each run, in USD. `maxTurns` cannot bound a review, because its cost is in the six reviewer subagents, not in the parent's turns. A run that reaches it stops with an error and the ticket escalates. The cap is per run, not per ticket: each implement, review and answer run gets the whole amount. `node orchestrator/report.mjs` shows what each ticket cost. |
 | `previewAuthors` | `["vercel"]` | The only GitHub logins whose preview links the handoff uses. |
 
 Set `SOFTWARE_FACTORY_CONFIG` to read the config from another path. The exit code is 0 when the poll ran, whether or not it acted, and 1 when it failed, such as when Claude is signed out.
@@ -120,6 +120,14 @@ tail -f ~/.local/state/software-factory/runs.jsonl
 ```
 
 `state.json` holds each ticket's phase, PR and session ID. The PR and the Linear issue show the rest.
+
+To summarize the state directory, with what is running, each ticket's cost, denied commands and distinct poll errors:
+
+```bash
+node orchestrator/report.mjs [stateDir] [--since <ISO date>] [--json]
+```
+
+The state directory defaults to `SF_STATE_DIR`, then `/Users/agent/.local/state/software-factory`, the agent user's. The files are world-readable, so the report runs from your own account without sudo. Costs cover finished runs only: a run that timed out wrote no line, so a ticket that timed out cost more than the report shows.
 
 The handoff message reads the `## Response to /pr-review` table that address-review posts: the column order (`#`, finding, severity, disposition, evidence) and the `Dismissed` and `Deferred` prefixes on the disposition column. A changed table layout would leave the dismissals and deferrals out of the message.
 

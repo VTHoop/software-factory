@@ -22,13 +22,22 @@ export const buildArgs = ({ prompt, model, maxTurns, maxRunCostUsd, resume, sett
 ];
 
 // A review run posts nothing: the script posts the file it writes, so one round is one comment.
+// The leading `*` also catches a command behind `cd x &&` or an env prefix. This is a guardrail,
+// not enforcement: the run's token can still write.
 const POSTING = [
-  "Bash(gh pr comment*)",
-  "Bash(gh * pr comment*)",
-  "Bash(gh pr review*)",
-  "Bash(gh * pr review*)",
-  "Bash(gh api *comments*)",
-  "Bash(gh api *reviews*)",
+  "Bash(*gh pr comment*)",
+  "Bash(*gh * pr comment*)",
+  "Bash(*gh issue comment*)",
+  "Bash(*gh * issue comment*)",
+  "Bash(*gh pr review*)",
+  "Bash(*gh * pr review*)",
+  "Bash(*gh pr edit*)",
+  "Bash(*gh * pr edit*)",
+  "Bash(*gh issue edit*)",
+  "Bash(*gh * issue edit*)",
+  "Bash(*gh api *comments*)",
+  "Bash(*gh api *reviews*)",
+  "Bash(*gh api graphql*)",
 ];
 
 export const buildSettings = (project, { base, keyFile, review }) => ({

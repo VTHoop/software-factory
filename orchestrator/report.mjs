@@ -7,6 +7,10 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseArgs } from "node:util";
+
+// The agent user's state directory: the report runs from the owner's account, so not defaultPaths().
+const AGENT_STATE = "/Users/agent/.local/state/software-factory";
 
 const lines = (file) => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter((l) => l.trim()) : []);
 
@@ -43,8 +47,6 @@ export const summarize = ({ runs, state, outLines = [], errLines = [], now = new
   }
   const acted = outLines.map(parse).filter(Boolean);
   const idle = acted.filter((o) => !o.acted);
-  const errors = {};
-  for (const e of errLines) errors[e] = (errors[e] ?? 0) + 1;
   return {
     running: (state?.tickets ?? [])
       .filter((t) => t.running)
@@ -55,7 +57,7 @@ export const summarize = ({ runs, state, outLines = [], errLines = [], now = new
     totalCostUsd: Object.values(tickets).reduce((s, t) => s + t.costUsd, 0),
     events,
     polls: { total: acted.length, idle: idle.length, reasons: Object.fromEntries(Object.entries(Object.groupBy(idle, (o) => o.reason)).map(([k, v]) => [k, v.length])) },
-    errors: Object.entries(errors).map(([message, count]) => ({ message, count })),
+    errors: Object.entries(Object.groupBy(errLines, (e) => e)).map(([message, v]) => ({ message, count: v.length })),
   };
 };
 
@@ -82,11 +84,17 @@ export const render = (s) => {
   return out.join("\n");
 };
 
-export const main = (argv = process.argv.slice(2)) => {
-  const args = argv.filter((a) => !a.startsWith("--"));
-  const sinceAt = argv.indexOf("--since");
-  const since = sinceAt >= 0 ? argv[sinceAt + 1] : undefined;
-  const dir = args.find((a) => a !== since) ?? process.env.SF_STATE_DIR ?? "/Users/agent/.local/state/software-factory";
+export const options = (argv, env = process.env) => {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    options: { since: { type: "string" }, json: { type: "boolean" } },
+    allowPositionals: true,
+  });
+  return { dir: positionals[0] ?? env.SF_STATE_DIR ?? AGENT_STATE, since: values.since, json: values.json ?? false };
+};
+
+const main = (argv = process.argv.slice(2)) => {
+  const { dir, since, json } = options(argv);
   const stateFile = join(dir, "state.json");
   const summary = summarize({
     runs: readRuns(dir, since),
@@ -94,7 +102,7 @@ export const main = (argv = process.argv.slice(2)) => {
     outLines: lines(join(dir, "poll.out.log")),
     errLines: lines(join(dir, "poll.err.log")),
   });
-  console.log(argv.includes("--json") ? JSON.stringify(summary, null, 2) : render(summary));
+  console.log(json ? JSON.stringify(summary, null, 2) : render(summary));
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

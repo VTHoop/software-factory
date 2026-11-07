@@ -1,12 +1,27 @@
 import { join } from "node:path";
 import { validBranch } from "./access.mjs";
-import { judgeRun, maskSecrets, parseLimit } from "./checks.mjs";
-import { outcomeOf } from "./github.mjs";
+import { judgeRun, maskSecrets, outcomeOf, parseLimit } from "./checks.mjs";
 import { runRecord } from "./log.mjs";
 
 // Where an unattended pr-review run leaves its comment, relative to its checkout. The script
 // posts it, so a run can post nothing itself and one review round makes one comment.
 export const REVIEW_FILE = ".software-factory/review.md";
+
+const POST_TRIES = 3;
+
+// Returns the last error, or null once posted. It never throws: a throw leaves the step marked
+// running, and recovery would run all six reviewers again for one failed post.
+const post = async (deps, pr, body) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await deps.github.comment(pr, body);
+      return null;
+    } catch (error) {
+      if (attempt === POST_TRIES) return error;
+      await deps.sleep?.(5_000 * attempt);
+    }
+  }
+};
 
 const fail = (ticket, judged, extra = {}) => ({
   ...ticket,
@@ -87,7 +102,7 @@ export const review = async (ticket, deps) => {
   const file = join(cwd, REVIEW_FILE);
   try {
     // The checkout is the PR's head, which could carry a file at this path.
-    await deps.files.remove(file);
+    await deps.files.remove(file, cwd);
     const { judged } = await run(
       ticket,
       deps,
@@ -96,7 +111,7 @@ export const review = async (ticket, deps) => {
       "review",
     );
     if (!judged.ok) return fail(ticket, judged);
-    const body = await deps.files.read(file);
+    const body = await deps.files.read(file, cwd);
     const outcome = body ? outcomeOf(body) : null;
     if (!outcome) {
       const reason = body
@@ -104,7 +119,11 @@ export const review = async (ticket, deps) => {
         : `The review run finished but wrote no review file at ${REVIEW_FILE}.`;
       return fail(ticket, { kind: "no-review", reason });
     }
-    await deps.github.comment(ticket.pr, maskSecrets(body));
+    const error = await post(deps, ticket.pr, maskSecrets(body));
+    if (error) {
+      const reason = `The review was written but not posted after ${POST_TRIES} tries: ${maskSecrets(error.message).slice(0, 300)}`;
+      return fail(ticket, { kind: "post", reason });
+    }
     return { ...ticket, phase: "reviewed", outcome, reviews: ticket.reviews + 1 };
   } finally {
     await deps.git.removeWorktree(deps.config.repo, cwd).catch(() => {});
