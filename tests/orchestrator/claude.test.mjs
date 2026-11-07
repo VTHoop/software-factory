@@ -146,7 +146,37 @@ describe("runClaude", () => {
   });
 });
 
+describe("buildSettings for a review run", () => {
+  const review = buildSettings(project, { base: "main", review: true }).permissions.deny;
+  const other = buildSettings(project, { base: "main" }).permissions.deny;
+  const posting = [
+    "gh pr comment 7 --body-file /tmp/r.md",
+    "gh -R o/r pr comment 7 --body-file x",
+    "gh pr review 7 --comment -b x",
+    "gh api --method POST repos/o/r/issues/7/comments --input x",
+    "gh api --method POST repos/o/r/pulls/7/reviews --input x",
+  ];
+  const matches = (rules, command) =>
+    rules.some((r) => r.startsWith("Bash(") && new RegExp(`^${r.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(command));
+
+  it("denies every way of posting to the PR, because the script posts the review", () => {
+    for (const command of posting) assert.ok(matches(review, command), command);
+  });
+
+  it("leaves posting allowed in other runs, where address-review replies", () => {
+    assert.ok(!matches(other, "gh pr comment 7 --body-file /tmp/r.md"));
+  });
+
+  it("keeps every other denial", () => {
+    for (const rule of other) assert.ok(review.includes(rule), rule);
+  });
+});
+
 describe("settingsFile", () => {
+  it("is different for a review run of the same repo", () => {
+    assert.notEqual(settingsFile("/state", "/r/x", "review"), settingsFile("/state", "/r/x"));
+  });
+
   it("is different for two repos that share a long path prefix", () => {
     const a = settingsFile("/state", "/Users/vthoop/dev/health-agent");
     const b = settingsFile("/state", "/Users/vthoop/dev/software-factory");

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { REVIEW_FILE } from "../orchestrator/steps.mjs";
 import { block, SKILLS, skill } from "./lib.mjs";
 
 const unattended = (name) => {
@@ -116,9 +117,17 @@ describe("pr-review --unattended", () => {
     assert.match(text(), /never review inline in their place/i);
   });
 
-  it("posts the summary without asking, and no inline comments", () => {
-    assert.match(text(), /post the summary comment without asking/i);
+  it("writes the summary to the file the script posts, and posts nothing itself", () => {
+    assert.ok(text().includes(`\`${REVIEW_FILE}\``), "names the review file the script reads");
+    assert.match(text(), /post nothing to the PR/i);
     assert.match(text(), /no inline comments/i);
+    assert.match(text(), /the script that started the run posts it/i);
+  });
+
+  it("reviews once per run: each lens spawned at most twice, never a second round", () => {
+    assert.match(text(), /at most twice/i);
+    assert.match(text(), /never start a second round/i);
+    assert.match(text(), /once per run/i);
   });
 
   it("continues when already reviewed or authored by the current account", () => {

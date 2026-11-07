@@ -5,7 +5,7 @@ A script that takes a **Ready** Linear ticket to a reviewed, addressed pull requ
 For a ticket it:
 
 1. moves the issue to **In Progress**, then runs `/software-factory:start-ticket <key> --unattended` in a new worktree;
-2. runs `/software-factory:pr-review <n> --unattended` in a new session and its own checkout, and counts the review only if all six `sdlc-review-*` agents started and finished;
+2. runs `/software-factory:pr-review <n> --unattended` in a new session and its own checkout, and counts the review only if all six `sdlc-review-*` agents started and finished. The run is denied every way of posting to the PR; it writes its comment to `.software-factory/review.md`, and the script posts that file once;
 3. resumes the implementer session with `/software-factory:address-review <n> --unattended` (a fresh session if it can’t be resumed) after the first review whatever its outcome, because an Approved review can still carry findings. A review that was not Approved gets one more review, at most two reviews in all; an Approved one goes straight to the handoff;
 4. waits for CI on the head commit and sends a handoff notification, then moves the issue to **In Review**.
 

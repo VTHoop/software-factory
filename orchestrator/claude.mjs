@@ -21,7 +21,17 @@ export const buildArgs = ({ prompt, model, maxTurns, maxRunCostUsd, resume, sett
   prompt,
 ];
 
-export const buildSettings = (project, { base, keyFile }) => ({
+// A review run posts nothing: the script posts the file it writes, so one round is one comment.
+const POSTING = [
+  "Bash(gh pr comment*)",
+  "Bash(gh * pr comment*)",
+  "Bash(gh pr review*)",
+  "Bash(gh * pr review*)",
+  "Bash(gh api *comments*)",
+  "Bash(gh api *reviews*)",
+];
+
+export const buildSettings = (project, { base, keyFile, review }) => ({
   permissions: {
     deny: [
       "Bash(gh pr merge:*)",
@@ -57,13 +67,14 @@ export const buildSettings = (project, { base, keyFile }) => ({
       "Write(.github/**)",
       "Edit(.github/**)",
       ...(project.extraDenials ?? []),
+      ...(review ? POSTING : []),
     ],
   },
 });
 
-// One settings file per repo, named from a hash of the whole path.
-export const settingsFile = (stateDir, repo) =>
-  join(stateDir, `settings-${createHash("sha256").update(repo).digest("hex").slice(0, 16)}.json`);
+// One settings file per repo, named from a hash of the whole path, and one more for its review runs.
+export const settingsFile = (stateDir, repo, step) =>
+  join(stateDir, `settings-${createHash("sha256").update(repo).digest("hex").slice(0, 16)}${step === "review" ? "-review" : ""}.json`);
 
 const GRACE_MS = 2000;
 const live = new Set();

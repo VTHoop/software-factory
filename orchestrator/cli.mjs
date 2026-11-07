@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // One poll: run whatever step is due, then exit. Start it by hand or from a loop.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { dockerReady, signedIn } from "./checks.mjs";
 import { buildArgs, killRunning, runClaude, settingsFile } from "./claude.mjs";
@@ -54,9 +54,12 @@ const main = async () => {
   const depsByEntry = new Map();
   const depsFor = (entry) => {
     if (depsByEntry.has(entry)) return depsByEntry.get(entry);
-    const settings = settingsFile(paths.state, entry.repo);
     mkdirSync(paths.state, { recursive: true });
-    writeFileSync(settings, JSON.stringify(settingsFor(entry, config)));
+    const settings = {};
+    for (const step of ["other", "review"]) {
+      settings[step] = settingsFile(paths.state, entry.repo, step);
+      writeFileSync(settings[step], JSON.stringify(settingsFor(entry, config, step)));
+    }
     const deps = {
       config: { ...config, repo: entry.repo },
       claudeVersion,
@@ -67,8 +70,20 @@ const main = async () => {
         addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees, gitEnv(identity)),
         removeWorktree,
       },
-      claude: async ({ prompt, cwd, resume, model, maxTurns, maxRunCostUsd, timeoutMs }) => {
-        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, maxRunCostUsd, resume, settings }), cwd, timeoutMs, env: claudeEnv(identity) });
+      files: {
+        remove: (path) => rmSync(path, { force: true }),
+        read: (path) => {
+          try {
+            return readFileSync(path, "utf8");
+          } catch (error) {
+            if (error.code === "ENOENT") return null;
+            throw error;
+          }
+        },
+      },
+      claude: async ({ prompt, cwd, resume, step, model, maxTurns, maxRunCostUsd, timeoutMs }) => {
+        const args = buildArgs({ prompt, model, maxTurns, maxRunCostUsd, resume, settings: settings[step === "review" ? "review" : "other"] });
+        const result = await runClaude({ args, cwd, timeoutMs, env: claudeEnv(identity) });
         if (result.timedOut) throw Object.assign(new Error("Run timed out"), { timedOut: true });
         if (result.resumeFailed) throw Object.assign(new Error("Session could not be resumed"), { code: "RESUME_FAILED" });
         if (!result.output) throw new Error(result.error);

@@ -165,9 +165,9 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 
 **Continue** when the PR was already reviewed, or was authored by the current account, without asking.
 
-**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. A reviewer that fails to run, or still has incomplete coverage after its second try, is a stop, not a smaller review.
+**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. Spawn each lens at most twice: once, and once more only for the coverage retry in Phase 3. A reviewer that fails to run, or still has incomplete coverage after its second try, is a stop, not a smaller review. The PR is reviewed once per run: never start a second round of reviewers, and never go back to Phase 1 after Phase 6, even to refine or re-check the comment.
 
-**Posting.** Post the summary comment without asking for confirmation, with `gh pr comment <n> --body-file <file>`, in the Output format below, and no inline comments. Then end with the finished result, whatever the **Overall** line says.
+**Posting.** Post nothing to the PR: no summary comment, no inline comments, no `gh pr comment`, `gh pr review` or `gh api` write. Instead, write the summary comment, in the Output format below, to `.software-factory/review.md` in the checkout (create the directory), once. The script that started the run posts it. Then end with the finished result, whatever the **Overall** line says.
 <!-- unattended:end -->
 
 # Output format
@@ -210,7 +210,7 @@ Omit empty sections. If everything is clean: heading + "Overall: Approved" + a o
 - **Eligibility pre-flight** — don't review merged/closed PRs; flag drafts and self-authored PRs.
 - **Validate before ranking** — every Blocker/Major must survive a confirm-or-kill check against the diff.
 - **One summary comment per review.** Inline anchors supplement; they don't fragment the review.
-- **Always confirm before posting** — PR comments are visible to anyone with repo access. An unattended run posts on the flag instead.
+- **Always confirm before posting** — PR comments are visible to anyone with repo access. An unattended run posts nothing: it writes the comment to a file, and the script that started it posts it.
 - **Don't duplicate prior trusted review comments.**
 - **Modernization is always non-blocking**, under its own heading.
 

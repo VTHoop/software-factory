@@ -1,8 +1,8 @@
 import { buildSettings } from "./claude.mjs";
 
 // The pieces cli.mjs hands to other modules, kept here so tests can check what a run actually receives.
-export const settingsFor = (entry, config) =>
-  buildSettings(entry, { base: config.base, keyFile: config.githubApp?.privateKeyFile });
+export const settingsFor = (entry, config, step) =>
+  buildSettings(entry, { base: config.base, keyFile: config.githubApp?.privateKeyFile, review: step === "review" });
 
 const withToken = (identity) => identity && (() => ({ ...process.env, ...identity.callEnv() }));
 

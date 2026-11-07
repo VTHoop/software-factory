@@ -13,6 +13,11 @@ describe("settingsFor", () => {
     assert.ok(settingsFor(entry, config).permissions.deny.includes("Read(/keys/app.pem)"));
   });
 
+  it("denies posting only for the review step", () => {
+    assert.ok(settingsFor(entry, config, "review").permissions.deny.some((d) => d.startsWith("Bash(gh pr comment")));
+    assert.ok(!settingsFor(entry, config).permissions.deny.some((d) => d.startsWith("Bash(gh pr comment")));
+  });
+
   it("is the same as before when no App is configured", () => {
     const plain = { ...config, githubApp: undefined };
     assert.deepEqual(settingsFor(entry, plain), buildSettings(entry, { base: "main" }));
