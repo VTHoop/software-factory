@@ -67,8 +67,8 @@ const main = async () => {
         addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees, gitEnv(identity)),
         removeWorktree,
       },
-      claude: async ({ prompt, cwd, resume, model, maxTurns, timeoutMs }) => {
-        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, resume, settings }), cwd, timeoutMs, env: claudeEnv(identity) });
+      claude: async ({ prompt, cwd, resume, model, maxTurns, maxRunCostUsd, timeoutMs }) => {
+        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, maxRunCostUsd, resume, settings }), cwd, timeoutMs, env: claudeEnv(identity) });
         if (result.timedOut) throw Object.assign(new Error("Run timed out"), { timedOut: true });
         if (result.resumeFailed) throw Object.assign(new Error("Session could not be resumed"), { code: "RESUME_FAILED" });
         if (!result.output) throw new Error(result.error);

@@ -37,6 +37,12 @@ describe("buildArgs", () => {
     assert.ok(!args.includes("--resume"));
   });
 
+  it("caps a run's spend when given a ceiling, and passes no cap otherwise", () => {
+    const capped = buildArgs({ prompt: "p", model: "sonnet", maxTurns: 1, maxRunCostUsd: 3 });
+    assert.equal(capped[capped.indexOf("--max-budget-usd") + 1], "3");
+    assert.ok(!args.includes("--max-budget-usd"));
+  });
+
   it("passes the prompt as one argument, never through a shell", () => {
     assert.ok(args.includes("/software-factory:pr-review 7 --unattended"));
   });

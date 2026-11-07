@@ -19,6 +19,7 @@ const run = async (ticket, deps, step, call, expect) => {
       ...call,
       model: deps.config.model,
       maxTurns: deps.config.maxTurns,
+      maxRunCostUsd: deps.config.maxRunCostUsd,
       timeoutMs: deps.config.runTimeoutMs,
     });
   } catch (error) {

@@ -54,6 +54,13 @@ describe("implement", () => {
 });
 
 describe("review", () => {
+  it("hands the configured spend ceiling to every run", async () => {
+    const deps = makeDeps({ claude: async (c) => (deps.calls.push(["claude", c]), reviewOutput()) });
+    deps.config.maxRunCostUsd = 3;
+    await review(withPr, deps);
+    assert.equal(claudeCall(deps).maxRunCostUsd, 3);
+  });
+
   it("runs pr-review --unattended as a new session in its own checkout", async () => {
     const deps = makeDeps({ claude: async (c) => (deps.calls.push(["claude", c]), reviewOutput()) });
     await review(withPr, deps);

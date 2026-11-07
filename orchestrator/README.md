@@ -54,6 +54,7 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 | `base` | `main` | The branch worktrees start from. |
 | `ciTimeoutMs` | 900000 | How long the handoff waits for CI on the head commit. |
 | `ciIntervalMs` | 30000 | How often it checks CI while it waits. |
+| `maxRunCostUsd` | none | A spend ceiling for each run, in USD. `maxTurns` cannot bound a review, because its cost is in the six reviewer subagents, not in the parent's turns. A run that reaches it stops with an error and the ticket escalates. `node orchestrator/report.mjs` shows what each ticket cost. |
 | `previewAuthors` | `["vercel"]` | The only GitHub logins whose preview links the handoff uses. |
 
 Set `SOFTWARE_FACTORY_CONFIG` to read the config from another path. The exit code is 0 when the poll ran, whether or not it acted, and 1 when it failed, such as when Claude is signed out.
