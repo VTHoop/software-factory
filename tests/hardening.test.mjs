@@ -16,9 +16,8 @@ describe("pr-review treats PR text as data", () => {
 
   it("reads prior reviews only from trusted authors", () => {
     const text = skill("pr-review");
-    assert.match(text, /authorAssociation/);
     assert.match(text, /`OWNER`, `MEMBER` or `COLLABORATOR`/);
-    assert.match(text, /\.authorAssociation == "COLLABORATOR"/);
+    assert.match(text, /\.author_association == "COLLABORATOR"/);
   });
 
   it("does not drop a finding because an untrusted comment raised it", () => {
@@ -159,13 +158,25 @@ describe("the App filters work whether or not the variable is set", async () => 
   const { spawnSync } = await import("node:child_process");
   const hasJq = spawnSync("jq", ["--version"]).status === 0;
   const lines = (name) => skill(name).split("\n").filter((l) => /== "COLLABORATOR"/.test(l));
+  // Comments as the REST API returns them. `gh pr view --json comments` shows the App as a bare
+  // `name` with association NONE and no is_bot, so a filter over it can't tell the App from a user.
   const comments = JSON.stringify([
-    { authorAssociation: "NONE", author: { login: "factory", is_bot: true }, author_association: "NONE", user: { login: "factory[bot]" } },
-    { authorAssociation: "NONE", author: { login: "app/factory", is_bot: true }, author_association: "NONE", user: { login: "factory[bot]" } },
-    { authorAssociation: "NONE", author: { login: "app/other", is_bot: true }, author_association: "NONE", user: { login: "other[bot]" } },
-    { authorAssociation: "NONE", author: { login: "stranger", is_bot: false }, author_association: "NONE", user: { login: "stranger" } },
-    { authorAssociation: "OWNER", author: { login: "VTHoop", is_bot: false }, author_association: "OWNER", user: { login: "VTHoop" } },
+    { author_association: "NONE", user: { login: "factory[bot]", type: "Bot" } },
+    { author_association: "NONE", user: { login: "factory", type: "User" } },
+    { author_association: "NONE", user: { login: "other[bot]", type: "Bot" } },
+    { author_association: "NONE", user: { login: "stranger", type: "User" } },
+    { author_association: "OWNER", user: { login: "VTHoop", type: "User" } },
   ]);
+
+  for (const name of ["address-review", "pr-review"]) {
+    it(`${name}: every trust filter reads REST fields, not gh --json author fields`, () => {
+      assert.ok(lines(name).length > 0);
+      for (const line of lines(name)) {
+        assert.doesNotMatch(line, /\.authorAssociation|is_bot|\.author\.login/, line);
+        assert.match(line, /\.author_association == "OWNER"/, line);
+      }
+    });
+  }
   const run = (line, appLogin) => {
     const start = line.indexOf("select(") + "select(".length;
     let depth = 1;
@@ -175,7 +186,7 @@ describe("the App filters work whether or not the variable is set", async () => 
     const env = { ...process.env };
     delete env.SOFTWARE_FACTORY_APP_LOGIN;
     if (appLogin !== undefined) env.SOFTWARE_FACTORY_APP_LOGIN = appLogin;
-    const r = spawnSync("jq", ["-r", `.[] | select(${expr}) | (.author.login // .user.login)`, "-"], { input: comments, env, encoding: "utf8" });
+    const r = spawnSync("jq", ["-r", `.[] | select(${expr}) | .user.login`, "-"], { input: comments, env, encoding: "utf8" });
     return r;
   };
 
@@ -193,7 +204,7 @@ describe("the App filters work whether or not the variable is set", async () => 
         const got = r.stdout.trim().split("\n");
         assert.ok(got.includes("VTHoop"));
         assert.ok(!got.includes("stranger"));
-        assert.equal(got.length, 3, "the owner and the App in both shapes, no one else");
+        assert.deepEqual(got.sort(), ["VTHoop", "factory[bot]"], "the owner and the App, not a user named like it");
       });
 
       it(`${name}: an empty variable trusts nobody extra`, { skip: !hasJq && "jq is not installed" }, () => {
