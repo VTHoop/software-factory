@@ -3,11 +3,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { dockerReady, signedIn } from "./checks.mjs";
-import { buildArgs, buildSettings, killRunning, runClaude, settingsFile } from "./claude.mjs";
+import { buildArgs, killRunning, runClaude, settingsFile } from "./claude.mjs";
 import { defaultPaths, entryFor, linearKeyFor, loadConfig } from "./config.mjs";
 import { escalate } from "./escalate.mjs";
 import { exec } from "./exec.mjs";
+import { mintInstallationToken } from "./appauth.mjs";
 import { createGithub } from "./github.mjs";
+import { assertKeyFile, pollWithIdentity } from "./identity.mjs";
+import { claudeEnv, gitEnv, githubConfigFor, settingsFor } from "./wiring.mjs";
 import { handoff } from "./handoff.mjs";
 import { collectIssues, createLinear } from "./linear.mjs";
 import { appendLog } from "./log.mjs";
@@ -30,6 +33,8 @@ for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]]) {
 
 const main = async () => {
   const config = loadConfig(paths.config);
+  // Set for each poll once its GitHub App token is minted; undefined when no App is configured.
+  let identity;
   const secrets = loadSecrets(paths.secrets);
   const send = (n) => notify(n, { secrets });
   // Recorded in each run's log line. It stays unknown if the CLI can't say, and the preflight reports that.
@@ -51,19 +56,19 @@ const main = async () => {
     if (depsByEntry.has(entry)) return depsByEntry.get(entry);
     const settings = settingsFile(paths.state, entry.repo);
     mkdirSync(paths.state, { recursive: true });
-    writeFileSync(settings, JSON.stringify(buildSettings(entry, { base: config.base })));
+    writeFileSync(settings, JSON.stringify(settingsFor(entry, config)));
     const deps = {
       config: { ...config, repo: entry.repo },
       claudeVersion,
       linear: linearFor(entry.repo),
-      github: createGithub({ githubRepo: entry.githubRepo, trustedAuthors: config.trustedAuthors, previewAuthors: config.previewAuthors }),
+      github: createGithub(githubConfigFor(entry, config, identity)),
       git: {
-        addWorktree: (a) => addWorktree(a, paths.worktrees),
-        addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees),
+        addWorktree: (a) => addWorktree(a, paths.worktrees, gitEnv(identity)),
+        addReviewCheckout: (a) => addReviewCheckout(a, paths.worktrees, gitEnv(identity)),
         removeWorktree,
       },
       claude: async ({ prompt, cwd, resume, model, maxTurns, timeoutMs }) => {
-        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, resume, settings }), cwd, timeoutMs });
+        const result = await runClaude({ args: buildArgs({ prompt, model, maxTurns, resume, settings }), cwd, timeoutMs, env: claudeEnv(identity) });
         if (result.timedOut) throw Object.assign(new Error("Run timed out"), { timedOut: true });
         if (result.resumeFailed) throw Object.assign(new Error("Session could not be resumed"), { code: "RESUME_FAILED" });
         if (!result.output) throw new Error(result.error);
@@ -108,11 +113,21 @@ const main = async () => {
       },
     });
 
-  return poll({
-    stateDir: paths.state,
-    now: new Date(),
+  return pollWithIdentity({
     config,
-    deps: { preflight, notify: send, run, cleanup, linear: { listIssues: () => collectIssues(clients) } },
+    now: () => new Date(),
+    mint: () => mintInstallationToken({ app: config.githubApp, repos: config.entries.map((e) => e.githubRepo), now: new Date() }),
+    checkKey: () => assertKeyFile(config.githubApp.privateKeyFile, config.entries.map((e) => e.repo)),
+    log: (record) => appendLog(paths.log, record),
+    poll: ({ identity: minted }) => {
+      identity = minted;
+      return poll({
+        stateDir: paths.state,
+        now: new Date(),
+        config,
+        deps: { preflight, notify: send, run, cleanup, linear: { listIssues: () => collectIssues(clients) } },
+      });
+    },
   });
 };
 

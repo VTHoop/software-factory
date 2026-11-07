@@ -33,12 +33,6 @@ describe("Mac Mini runbook (private)", { skip: !present && "private/mac-mini-run
     assert.match(text(), /LaunchAgents/);
   });
 
-  it("sets git author and gh sign-in for the agent's own account", () => {
-    for (const word of ["git config --global user.name", "git config --global user.email", "gh auth login"]) {
-      assert.ok(text().includes(word), `missing ${word}`);
-    }
-  });
-
   it("limits the credentials to the Claude sign-in, the HEA Linear key and Pushover", () => {
     for (const word of ["LINEAR_HEA_API_KEY", "PUSHOVER_USER_KEY", "PUSHOVER_APP_TOKEN"]) {
       assert.ok(text().includes(word), `missing ${word}`);
@@ -47,5 +41,22 @@ describe("Mac Mini runbook (private)", { skip: !present && "private/mac-mini-run
 
   it("covers the stable channel, SSH over Tailscale and the trustedAuthors entry", () => {
     for (const word of ["stable", "Tailscale", "trustedAuthors"]) assert.ok(text().includes(word), `missing ${word}`);
+  });
+});
+
+describe("Mac Mini runbook and the GitHub App (private)", { skip: !present && "private/mac-mini-runbook.md is not on this machine" }, () => {
+  const text = () => read(...file);
+
+  it("covers placing the key, then revoking and rotating it", () => {
+    for (const word of ["chmod 600", "revoke", "rotate", "privateKeyFile"]) assert.match(text(), new RegExp(word, "i"), word);
+  });
+
+  it("no longer signs in as a separate GitHub account", () => {
+    assert.doesNotMatch(text(), /gh auth login/);
+    assert.doesNotMatch(text(), /vthoop-factory-bot/);
+  });
+
+  it("sets no personal git author, since runs use the App's", () => {
+    assert.doesNotMatch(text(), /git config --global user\.(name|email)/);
   });
 });

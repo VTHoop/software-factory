@@ -26,3 +26,10 @@ describe("exec", () => {
     assert.ok(DEFAULT_TIMEOUT_MS > 0 && DEFAULT_TIMEOUT_MS <= 300_000);
   });
 });
+
+describe("exec environment", () => {
+  it("passes the env it is given to the child", async () => {
+    const r = await exec(node, ["-e", "console.log(process.env.GH_TOKEN)"], { timeoutMs: 5000, env: { ...process.env, GH_TOKEN: "from-env" } });
+    assert.equal(r.stdout.trim(), "from-env");
+  });
+});

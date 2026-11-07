@@ -121,3 +121,10 @@ describe("collectIssues", () => {
     assert.deepEqual(issues.map((i) => i.key), ["HEA-1", "HEA-2", "HEA-3"]);
   });
 });
+
+describe("addLabel when the label is missing", () => {
+  it("tells the owner to create it in Linear", async () => {
+    const { fetch } = fakeFetch({ "issue(id": issueQuery, "issueLabels": () => ({ issueLabels: { nodes: [] } }) });
+    await assert.rejects(createLinear("k", fetch).addLabel("HEA-1", "needs-owner"), /create a label named needs-owner/i);
+  });
+});

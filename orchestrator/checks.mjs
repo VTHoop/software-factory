@@ -37,6 +37,7 @@ const MAX_COMMAND = 200;
 // Model-written text ends up in comments, notifications and the log, so secrets are masked first.
 export const maskSecrets = (text) =>
   String(text)
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, "[redacted]")
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer [redacted]")
     .replace(/lin_api_\w+/g, "[redacted]")
     .replace(/sk-ant-[\w-]+/g, "[redacted]")

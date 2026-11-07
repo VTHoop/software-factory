@@ -200,3 +200,15 @@ describe("dockerReady", () => {
     assert.match(r.message, /Docker is not ready/);
   });
 });
+
+describe("redact private keys", () => {
+  it("masks a PEM private key, however it is wrapped", () => {
+    const pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEabc123\nxyz\n-----END RSA PRIVATE KEY-----";
+    assert.ok(!redact(`cat it: ${pem}`).includes("MIIEabc123"));
+    assert.ok(!redact("-----BEGIN PRIVATE KEY-----\nMIIEabc123").includes("MIIEabc123"));
+  });
+
+  it("masks an installation token", () => {
+    assert.ok(!redact(`x ghs_${"a".repeat(30)}`).includes("ghs_aaa"));
+  });
+});

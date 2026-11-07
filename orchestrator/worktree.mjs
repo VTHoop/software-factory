@@ -2,38 +2,38 @@ import { mkdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { exec } from "./exec.mjs";
 
-const git = (cwd, ...args) => exec("git", args, { cwd }).then((r) => r.stdout.trim());
+const git = (cwd, env, ...args) => exec("git", args, { cwd, env }).then((r) => r.stdout.trim());
 
 // Worktrees whose PR is merged or closed. An open, unknown or missing PR keeps its worktree.
 export const staleWorktrees = (tickets, prStates) =>
   tickets.filter((t) => t.worktree && t.pr && ["MERGED", "CLOSED"].includes(prStates[t.pr]));
 
 // Detached at the base: start-ticket makes the ticket's branch itself, and stops if it already exists.
-export const addWorktree = async ({ repo, branch, base }, root) => {
-  await git(repo, "fetch", "origin");
+export const addWorktree = async ({ repo, branch, base }, root, env) => {
+  await git(repo, env, "fetch", "origin");
   mkdirSync(root, { recursive: true });
   const path = join(root, `${basename(repo)}-${branch.replaceAll("/", "_")}`);
   // An earlier attempt may have left this path behind, listed by git or not.
-  await git(repo, "worktree", "remove", "--force", path).catch(() => {});
+  await git(repo, env, "worktree", "remove", "--force", path).catch(() => {});
   rmSync(path, { recursive: true, force: true });
-  await git(repo, "worktree", "prune");
-  await git(repo, "worktree", "add", "--detach", path, `origin/${base}`);
+  await git(repo, env, "worktree", "prune");
+  await git(repo, env, "worktree", "add", "--detach", path, `origin/${base}`);
   return path;
 };
 
-export const addReviewCheckout = async ({ repo, pr }, root) => {
+export const addReviewCheckout = async ({ repo, pr }, root, env) => {
   mkdirSync(root, { recursive: true });
   const path = join(root, `${basename(repo)}-review-pr-${pr}-${Date.now()}`);
   // Into a named ref, because FETCH_HEAD moves with the next fetch in the repo.
   const ref = `refs/factory/pr-${pr}`;
-  await git(repo, "fetch", "origin", `+pull/${pr}/head:${ref}`);
-  await git(repo, "worktree", "add", "--detach", path, ref);
+  await git(repo, env, "fetch", "origin", `+pull/${pr}/head:${ref}`);
+  await git(repo, env, "worktree", "add", "--detach", path, ref);
   return path;
 };
 
-export const removeWorktree = (repo, path) => git(repo, "worktree", "remove", "--force", path);
+export const removeWorktree = (repo, path) => git(repo, undefined, "worktree", "remove", "--force", path);
 
-export const pruneWorktrees = (repo) => git(repo, "worktree", "prune");
+export const pruneWorktrees = (repo) => git(repo, undefined, "worktree", "prune");
 
 // Removes the worktrees of merged or closed PRs. Returns the keys it removed; a worktree
 // that fails to go, or whose PR state can't be read, stays and is tried again next poll.

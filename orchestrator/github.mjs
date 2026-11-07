@@ -16,7 +16,7 @@ export const createGithub = (config, run = exec) => {
   // `gh api` has no -R flag; its endpoint names the repo instead.
   const gh = async (args, input) => {
     const full = args[0] === "api" ? args : ["-R", config.githubRepo, ...args];
-    return (await run("gh", full, { input, timeoutMs: GH_TIMEOUT_MS })).stdout;
+    return (await run("gh", full, { input, env: typeof config.env === "function" ? config.env() : config.env, timeoutMs: GH_TIMEOUT_MS })).stdout;
   };
   const json = async (args) => JSON.parse(await gh(args));
   const comments = async (pr) => trustedComments((await json(["pr", "view", String(pr), "--json", "comments"])).comments, config);

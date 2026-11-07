@@ -27,6 +27,15 @@ export const loadConfig = (file) => {
       throw new Error(`config: entries[${i}].projects, if given, must name at least one Linear project`);
     }
   });
+  const app = config.githubApp;
+  if (app) {
+    for (const key of ["appId", "installationId", "privateKeyFile", "botLogin", "botUserId"]) {
+      if (!app[key]) throw new Error(`config: githubApp.${key} is required`);
+    }
+    // A token lasts an hour and a run may start up to 30 minutes after it was minted.
+    if (config.runTimeoutMs > 1_800_000) throw new Error("config: runTimeoutMs must be at most 30 minutes (1800000) when githubApp is set");
+    if (!String(app.botLogin).endsWith("[bot]")) throw new Error("config: githubApp.botLogin must end in [bot]");
+  }
   for (const team of new Set(config.entries.map((e) => e.team))) {
     const sharing = config.entries.filter((e) => e.team === team);
     if (sharing.length > 1 && sharing.some((e) => !e.projects)) {
