@@ -35,8 +35,15 @@ const POSTING = [
   "Bash(*gh * pr edit*)",
   "Bash(*gh issue edit*)",
   "Bash(*gh * issue edit*)",
-  "Bash(*gh api *comments*)",
-  "Bash(*gh api *reviews*)",
+  // `gh api` writes with a method or a body, and posts whenever it has one. Reads stay allowed:
+  // pr-review reads earlier reviews from the comments endpoint.
+  "Bash(*gh api *-X*)",
+  "Bash(*gh api *--method*)",
+  "Bash(*gh api *-f *)",
+  "Bash(*gh api *-F *)",
+  "Bash(*gh api *--field*)",
+  "Bash(*gh api *--raw-field*)",
+  "Bash(*gh api *--input*)",
   "Bash(*gh api graphql*)",
 ];
 
