@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildArgs, buildSettings, killRunning, runClaude, settingsFile } from "../../orchestrator/claude.mjs";
+import { skill } from "../lib.mjs";
 
 const project = { extraDenials: ["Bash(supabase db push:*)"] };
 
@@ -164,6 +165,10 @@ describe("buildSettings for a review run", () => {
     "gh issue edit 7 --body x",
     "GH_DEBUG=1 gh pr comment 7 -b x",
     "cd /tmp && gh pr comment 7 -b x",
+    "gh api repos/o/r/issues/7/comments -f body=x",
+    "gh api repos/o/r/issues/7/comments --input x",
+    "gh api -X PATCH repos/o/r/issues/comments/1 -f body=x",
+    "gh api --method POST repos/o/r/pulls/7/comments/1/replies -F body=@x",
   ];
   // What an unattended review does run: none of it may be caught.
   const reads = [
@@ -175,7 +180,9 @@ describe("buildSettings for a review run", () => {
     "git show origin/b:orchestrator/steps.mjs",
   ];
   const matches = (rules, command) =>
-    rules.some((r) => r.startsWith("Bash(") && new RegExp(`^${r.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(command));
+    rules.some((r) => r.startsWith("Bash(") && new RegExp(`^${r.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`, "s").test(command));
+  // Every comment read the skills run, as written in them, jq filter and all.
+  const commentReads = ["pr-review", "address-review"].flatMap((name) => skill(name).match(/gh api --paginate[\s\S]*?'(?=`|\n\s*```)/g) ?? []);
 
   it("denies every way of posting to the PR, because the script posts the review", () => {
     for (const command of posting) assert.ok(matches(review, command), command);
@@ -183,6 +190,11 @@ describe("buildSettings for a review run", () => {
 
   it("lets a review run read the PR and the diff", () => {
     for (const command of reads) assert.ok(!matches(review, command), command);
+  });
+
+  it("lets a review run read earlier comments the way the skills do", () => {
+    assert.ok(commentReads.length >= 4, `found ${commentReads.length} comment reads in the skills`);
+    for (const command of commentReads) assert.ok(!matches(review, command), command);
   });
 
   it("leaves posting allowed in other runs, where address-review replies", () => {

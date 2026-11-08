@@ -50,11 +50,19 @@ describe("pr-review checks coverage", () => {
     assert.match(text(), /spawn it once more, naming the files it missed/i);
   });
 
-  it("never approves on an incomplete lens in an owner session", () => {
+  it("reads the files a reviewer still missed itself, under that reviewer's lens", () => {
+    assert.match(text(), /read the files it still missed in full yourself/i);
+    assert.match(text(), /under that reviewer's lens/i);
+  });
+
+  it("withholds Approved only for a file nobody read in full", () => {
+    assert.match(text(), /neither the reviewer nor you read in full/i);
     assert.match(text(), /never `Approved`/);
   });
 
-  it("stops an unattended run when coverage is still incomplete", () => {
-    assert.match(block(text(), "unattended"), /incomplete coverage.*stop/is);
+  it("does not stop an unattended run for incomplete coverage, because the arbiter covers it", () => {
+    const unattended = block(text(), "unattended");
+    assert.doesNotMatch(unattended, /incomplete coverage after its second try, is a stop/i);
+    assert.match(unattended, /incomplete coverage after its second try is not a stop/i);
   });
 });
