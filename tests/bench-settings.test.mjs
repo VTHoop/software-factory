@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { exists, json } from "./lib.mjs";
+import { exists, json, skill } from "./lib.mjs";
 
 const rules = () => json("bench", "settings.json").permissions;
 
@@ -37,6 +37,15 @@ describe("bench/settings.json: the access rules for every scored run", () => {
     ]) {
       assert.ok(allow.includes(rule), rule);
     }
+  });
+
+  it("allows pr-review's read of earlier comments, as the skill writes it", () => {
+    const matches = (rule, command) =>
+      rule.startsWith("Bash(") && new RegExp(`^${rule.slice(5, -1).replace(/:\*$/, "*").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`, "s").test(command);
+    const read = skill("pr-review").match(/gh api --paginate[^`]*/)?.[0] ?? "";
+    const command = read.replace("{owner}/{repo}", "VTHoop/disciplined-sidekick").replace("<n>", "7");
+    assert.match(command, /issues\/7\/comments/);
+    assert.ok(rules().allow.some((rule) => matches(rule, command)), command);
   });
 
   it("allows no compound command and nothing it also denies", () => {
