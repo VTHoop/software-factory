@@ -19,7 +19,7 @@ export const createGithub = (config, run = exec) => {
     return (await run("gh", full, { input, env: typeof config.env === "function" ? config.env() : config.env, timeoutMs: GH_TIMEOUT_MS })).stdout;
   };
   const json = async (args) => JSON.parse(await gh(args));
-  // From the REST API, every page: see trustedComments for why not `gh pr view --json comments`.
+  // Every page, from the REST API (see trustedComments).
   const comments = async (pr) => {
     const pages = await json(["api", "--paginate", "--slurp", `repos/${config.githubRepo}/issues/${pr}/comments?per_page=100`]);
     return trustedComments(pages.flat().map((c) => ({ author: { login: c.user?.login }, body: c.body })), config);
@@ -53,6 +53,8 @@ export const createGithub = (config, run = exec) => {
     },
 
     async prDetails(pr) {
+      // `--json comments` shows an App by its bare name, so `vercel` here is Vercel's App. Bare is safe:
+      // the match is exact, `vercel` is Vercel's own account, and only a *.vercel.app link is taken.
       const data = await json(["pr", "view", String(pr), "--json", "number,url,body,comments"]);
       const preview = previewUrl(data.comments, config.previewAuthors);
       return { number: data.number, url: data.url, body: data.body, previewUrl: preview };

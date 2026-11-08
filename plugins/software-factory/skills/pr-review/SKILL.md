@@ -196,7 +196,7 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 Omit empty sections. If everything is clean: heading + "Overall: Approved" + a one-sentence summary.
 
 # Tool usage
-- **`gh` CLI:** `gh pr view`, `gh pr list`, `gh pr comment --body-file` (owner sessions only), `gh repo view --json defaultBranchRef`, `gh api user --jq .login` (owner sessions only; unattended runs use `SOFTWARE_FACTORY_APP_LOGIN`), `gh auth status`. Optional inline review, owner sessions only: `gh api --method POST repos/{owner}/{repo}/pulls/<n>/reviews --input <file>`.
+- **`gh` CLI:** `gh pr view`, `gh pr list`, `gh pr comment --body-file` (owner sessions only), `gh repo view --json defaultBranchRef`, `gh api user --jq .login` (owner sessions only; unattended runs use `SOFTWARE_FACTORY_APP_LOGIN`), `gh api --paginate "repos/{owner}/{repo}/issues/<n>/comments?per_page=100" --jq …` (step 6), `gh auth status`. Optional inline review, owner sessions only: `gh api --method POST repos/{owner}/{repo}/pulls/<n>/reviews --input <file>`.
 - **Linear `get_issue`** (any server name — match the suffix): fetch the ticket in Phase 1 step 5; its description is embedded in the requirements reviewer's prompt.
 - **Bash:** `command -v gh`, `git fetch origin`, `git diff <a>...<b>`, `git diff --name-only`, `git rev-parse --verify`, `git branch --show-current`, `git symbolic-ref --quiet refs/remotes/origin/HEAD`.
 - **Read:** `${CLAUDE_PROJECT_DIR}/.claude/flywheel.md` (if present); project files as needed.

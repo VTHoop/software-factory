@@ -21,6 +21,7 @@
       "Bash(gh repo view:*)",
       "Bash(gh auth status)",
       "Bash(gh api user:*)",
+      "Bash(gh api --paginate \"repos/*/issues/*/comments?per_page=100\" --jq *)",
       "Write(//tmp/**)",
       "Write(//private/tmp/**)",
       "mcp__linear__get_issue"
