@@ -35,9 +35,10 @@ describe("orchestrator README", () => {
   it("documents every setting loadConfig knows", () => {
     for (const name of settings()) assert.ok(section().includes(name), `missing ${name}`);
   });
-  it("no longer documents a turn limit", () => {
-    assert.ok(!section().includes("maxTurns"));
-    assert.doesNotMatch(section(), /turn limit/i);
+  it("sets a spend cap and no turn limit in the example, and says an old maxTurns is refused", () => {
+    assert.ok(!section().includes('"maxTurns"'));
+    assert.match(section(), /"maxRunCostUsd": \d/);
+    assert.match(section(), /`maxTurns` is refused/);
   });
   it("documents SOFTWARE_FACTORY_CONFIG and how the script exits", () => {
     for (const word of ["SOFTWARE_FACTORY_CONFIG", "exit code"]) assert.ok(section().includes(word), `missing ${word}`);

@@ -9,7 +9,7 @@ For a ticket it:
 3. resumes the implementer session with `/software-factory:address-review <n> --unattended` (a fresh session if it can’t be resumed) after the first review whatever its outcome, because an Approved review can still carry findings. A review that was not Approved gets one more review, at most two reviews in all; an Approved one goes straight to the handoff;
 4. waits for CI on the head commit and sends a handoff notification, then moves the issue to **In Review**.
 
-A failed run, a skill that stopped, any permission denial, a second review that still isn't Approved, or a time or turn limit is an escalation: a comment on the issue and the PR, the `needs-owner` label, a move back to Todo if there is no PR yet, and a notification. Hitting a plan limit is a pause, not an escalation.
+A failed run, a skill that stopped, any permission denial, a second review that still isn't Approved, or a run that reaches its time limit or spend cap is an escalation: a comment on the issue and the PR, the `needs-owner` label, a move back to Todo if there is no PR yet, and a notification. Hitting a plan limit is a pause, not an escalation.
 
 ## Setup
 
@@ -24,7 +24,7 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 ```json
 {
   "model": "sonnet",
-  "maxTurns": 80,
+  "maxRunCostUsd": 4,
   "runTimeoutMs": 1800000,
   "base": "main",
   "ciTimeoutMs": 900000,
@@ -47,14 +47,13 @@ The script needs Node.js 24, the version CI runs; `util.parseEnv` alone needs 20
 }
 ```
 
-`model` is passed to every step. `trustedAuthors` and the `githubApp` bot are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing. `githubApp` is the identity the script acts as on GitHub; see *The GitHub App*. `maxTurns` and `runTimeoutMs` limit each run; hitting either escalates the ticket. Optional settings:
+`model` is passed to every step. `trustedAuthors` and the `githubApp` bot are the only GitHub logins whose review comments count; a fork PR or a stranger's comment starts nothing. `githubApp` is the identity the script acts as on GitHub; see *The GitHub App*. `maxRunCostUsd` and `runTimeoutMs` bound each run, and a run that reaches either escalates the ticket. `maxRunCostUsd` is a spend cap per run in USD, using Claude Code's estimate at list price. It is per run, not per ticket: the implement, review and answer runs each get the whole amount. It also covers a review, whose cost is in its six reviewer subagents. There is no turn limit, because turns measure how much work a run did, not what it cost; a config that still sets `maxTurns` is refused. `node orchestrator/report.mjs` shows what each ticket cost. Optional settings:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `base` | `main` | The branch worktrees start from. |
 | `ciTimeoutMs` | 900000 | How long the handoff waits for CI on the head commit. |
 | `ciIntervalMs` | 30000 | How often it checks CI while it waits. |
-| `maxRunCostUsd` | none | A spend ceiling for each run, in USD. `maxTurns` cannot bound a review, because its cost is in the six reviewer subagents, not in the parent's turns. A run that reaches it stops with an error and the ticket escalates. The cap is per run, not per ticket: each implement, review and answer run gets the whole amount. `node orchestrator/report.mjs` shows what each ticket cost. |
 | `previewAuthors` | `["vercel"]` | The only GitHub logins whose preview links the handoff uses. |
 
 Set `SOFTWARE_FACTORY_CONFIG` to read the config from another path. The exit code is 0 when the poll ran, whether or not it acted, and 1 when it failed, such as when Claude is signed out.

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
-export const buildArgs = ({ prompt, model, maxTurns, maxRunCostUsd, resume, settings }) => [
+export const buildArgs = ({ prompt, model, maxRunCostUsd, resume, settings }) => [
   "-p",
   "--output-format",
   "json",
@@ -12,10 +12,9 @@ export const buildArgs = ({ prompt, model, maxTurns, maxRunCostUsd, resume, sett
   "auto",
   "--permission-prompts",
   "none",
-  "--max-turns",
-  String(maxTurns),
-  // Turns count only the parent session; a review's spend is in its subagents, so only a budget bounds it.
-  ...(maxRunCostUsd ? ["--max-budget-usd", String(maxRunCostUsd)] : []),
+  // The spend cap and the time limit are a run's only bounds. Unlike a turn limit, the cap covers a review's subagents.
+  "--max-budget-usd",
+  String(maxRunCostUsd),
   ...(settings ? ["--settings", settings] : []),
   ...(resume ? ["--resume", resume] : []),
   prompt,
