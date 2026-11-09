@@ -43,22 +43,25 @@ describe("loadConfig", () => {
     return file;
   };
   const entry = { repo: "/work/sidekick", githubRepo: "VTHoop/disciplined-sidekick", team: "Health Agent" };
-  const base = { model: "sonnet", maxTurns: 80, runTimeoutMs: 1800000, trustedAuthors: ["VTHoop"], entries: [entry] };
+  const base = { model: "sonnet", maxRunCostUsd: 4, runTimeoutMs: 1800000, trustedAuthors: ["VTHoop"], entries: [entry] };
 
-  it("takes maxRunCostUsd only as a number above zero, or not at all", () => {
+  it("takes maxRunCostUsd only as a number above zero", () => {
     for (const bad of [0, "", -1, "3", Number.NaN, null]) {
       assert.throws(() => loadConfig(write({ ...base, maxRunCostUsd: bad })), /maxRunCostUsd/, String(bad));
     }
     assert.equal(loadConfig(write({ ...base, maxRunCostUsd: 2.5 })).maxRunCostUsd, 2.5);
-    assert.equal(loadConfig(write(base)).maxRunCostUsd, undefined);
+  });
+
+  it("refuses the old maxTurns, so an owner doesn't think it still limits a run", () => {
+    assert.throws(() => loadConfig(write({ ...base, maxTurns: 80 })), /maxTurns.*maxRunCostUsd/);
   });
 
   it("holds the model in one value", () => {
     assert.equal(loadConfig(write(base)).model, "sonnet");
   });
 
-  it("requires a model, a time limit and a turn limit", () => {
-    for (const k of ["model", "maxTurns", "runTimeoutMs"]) {
+  it("requires a model, a time limit and a spend cap", () => {
+    for (const k of ["model", "runTimeoutMs", "maxRunCostUsd"]) {
       const { [k]: _, ...rest } = base;
       assert.throws(() => loadConfig(write(rest)), new RegExp(k));
     }
@@ -131,7 +134,7 @@ describe("loadConfig defaults", () => {
       file,
       JSON.stringify({
         model: "sonnet",
-        maxTurns: 80,
+        maxRunCostUsd: 4,
         runTimeoutMs: 1000,
         entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }],
         ...extra,
@@ -161,7 +164,7 @@ describe("loadConfig githubApp", () => {
     return file;
   };
   const githubApp = { appId: "1", installationId: "2", privateKeyFile: "/keys/app.pem", botLogin: "factory[bot]", botUserId: 4242 };
-  const base = { model: "sonnet", maxTurns: 80, runTimeoutMs: 1800000, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }] };
+  const base = { model: "sonnet", maxRunCostUsd: 4, runTimeoutMs: 1800000, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }] };
 
   it("is optional", () => {
     assert.equal(loadConfig(write(base)).githubApp, undefined);
@@ -185,7 +188,7 @@ describe("loadConfig githubApp", () => {
 
 describe("loadConfig githubApp and the run limit", () => {
   const githubApp = { appId: "1", installationId: "2", privateKeyFile: "/keys/app.pem", botLogin: "factory[bot]", botUserId: 4242 };
-  const base = { model: "sonnet", maxTurns: 80, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }], githubApp };
+  const base = { model: "sonnet", maxRunCostUsd: 4, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }], githubApp };
   const write = (config) => {
     const file = join(tmp(), "config.json");
     writeFileSync(file, JSON.stringify(config));

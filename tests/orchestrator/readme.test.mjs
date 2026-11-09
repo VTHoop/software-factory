@@ -9,7 +9,7 @@ import { tmp } from "./fakes.mjs";
 // Every setting loadConfig knows, taken from the code rather than from a list here.
 const settings = () => {
   const file = join(tmp("sf-readme-"), "config.json");
-  const required = { model: "m", maxTurns: 1, runTimeoutMs: 1, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }] };
+  const required = { model: "m", maxRunCostUsd: 1, runTimeoutMs: 1, entries: [{ repo: "/r", team: "T", githubRepo: "o/r" }] };
   writeFileSync(file, JSON.stringify(required));
   return Object.keys(loadConfig(file));
 };
@@ -34,6 +34,10 @@ describe("orchestrator README", () => {
   });
   it("documents every setting loadConfig knows", () => {
     for (const name of settings()) assert.ok(section().includes(name), `missing ${name}`);
+  });
+  it("no longer documents a turn limit", () => {
+    assert.ok(!section().includes("maxTurns"));
+    assert.doesNotMatch(section(), /turn limit/i);
   });
   it("documents SOFTWARE_FACTORY_CONFIG and how the script exits", () => {
     for (const word of ["SOFTWARE_FACTORY_CONFIG", "exit code"]) assert.ok(section().includes(word), `missing ${word}`);
