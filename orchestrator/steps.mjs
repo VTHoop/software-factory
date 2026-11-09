@@ -40,7 +40,6 @@ const run = async (ticket, deps, step, call, expect) => {
       ...call,
       step,
       model: deps.config.model,
-      maxTurns: deps.config.maxTurns,
       maxRunCostUsd: deps.config.maxRunCostUsd,
       timeoutMs: deps.config.runTimeoutMs,
     });
@@ -55,7 +54,7 @@ const run = async (ticket, deps, step, call, expect) => {
   deps.log?.(runRecord(output, { key: ticket.key, step, at: new Date().toISOString(), priorCostUsd: call.priorCostUsd, claudeVersion: deps.claudeVersion }));
   const limit = parseLimit(output, { now: new Date() });
   if (limit) throw Object.assign(new Error("Plan limit reached"), { planLimit: limit });
-  return { output, judged: judgeRun(output, { maxTurns: deps.config.maxTurns, expect }) };
+  return { output, judged: judgeRun(output, { maxRunCostUsd: deps.config.maxRunCostUsd, expect }) };
 };
 
 export const implement = async (ticket, deps) => {

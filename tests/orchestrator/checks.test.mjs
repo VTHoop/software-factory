@@ -4,7 +4,7 @@ import { deniedCommands, judgeRun, outcomeOf, parseLimit, REVIEWERS as NAMES, re
 import { AGENTS } from "../lib.mjs";
 import { byType, output, REVIEWERS, reviewOutput } from "./fakes.mjs";
 
-const opts = { maxTurns: 80 };
+const opts = { maxRunCostUsd: 4 };
 
 describe("signedIn", () => {
   it("accepts a signed-in `claude auth status`", () => {
@@ -61,9 +61,18 @@ describe("judgeRun", () => {
     assert.equal(r.kind, "error");
   });
 
-  it("fails a run that used more turns than the limit", () => {
-    const r = judgeRun(output({ num_turns: 81 }), opts);
-    assert.equal(r.kind, "turn-limit");
+  it("passes a finished run however many turns it took", () => {
+    assert.deepEqual(judgeRun(output({ num_turns: 97 }), opts), { ok: true });
+  });
+
+  it("names the spend cap when a run reaches it", () => {
+    const r = judgeRun(
+      output({ is_error: true, subtype: "error_max_budget_usd", terminal_reason: "budget_exhausted", result: null }),
+      opts,
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.kind, "budget");
+    assert.match(r.reason, /\$4 /);
   });
 });
 

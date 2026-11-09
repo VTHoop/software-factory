@@ -73,7 +73,10 @@ const reviewersMissing = (output) => {
 };
 
 // Whether a finished run counts. `expect: "review"` also requires all six reviewers.
-export const judgeRun = (output, { maxTurns, expect }) => {
+export const judgeRun = (output, { maxRunCostUsd, expect }) => {
+  if (output.is_error && output.subtype === "error_max_budget_usd") {
+    return { ok: false, kind: "budget", reason: `The run reached its $${maxRunCostUsd} spend cap (maxRunCostUsd).` };
+  }
   if (output.is_error) {
     return {
       ok: false,
@@ -84,13 +87,6 @@ export const judgeRun = (output, { maxTurns, expect }) => {
   const denied = deniedCommands(output);
   if (denied.length > 0) {
     return { ok: false, kind: "denied", denied, reason: `Permission denied for: ${denied.join("; ")}` };
-  }
-  if (output.num_turns > maxTurns) {
-    return {
-      ok: false,
-      kind: "turn-limit",
-      reason: `The run used ${output.num_turns} turns; the limit is ${maxTurns}.`,
-    };
   }
   const result = resultLine(output.result);
   if (!result) return { ok: false, kind: "no-result", reason: "The run ended without a SOFTWARE_FACTORY_RESULT line." };

@@ -9,7 +9,7 @@ describe("buildArgs", () => {
   const args = buildArgs({
     prompt: "/software-factory:pr-review 7 --unattended",
     model: "sonnet",
-    maxTurns: 80,
+    maxRunCostUsd: 4,
     settings: "/tmp/settings.json",
   });
 
@@ -23,9 +23,13 @@ describe("buildArgs", () => {
     assert.equal(args[args.indexOf("--permission-prompts") + 1], "none");
   });
 
-  it("passes the model and the turn limit explicitly", () => {
+  it("passes the model and the spend cap explicitly", () => {
     assert.equal(args[args.indexOf("--model") + 1], "sonnet");
-    assert.equal(args[args.indexOf("--max-turns") + 1], "80");
+    assert.equal(args[args.indexOf("--max-budget-usd") + 1], "4");
+  });
+
+  it("passes no turn limit, since the spend cap bounds a run", () => {
+    assert.ok(!args.includes("--max-turns"));
   });
 
   it("never passes --bare, which does not use subscription sign-in", () => {
@@ -33,15 +37,9 @@ describe("buildArgs", () => {
   });
 
   it("resumes a session by ID when given one", () => {
-    const resumed = buildArgs({ prompt: "p", model: "sonnet", maxTurns: 1, resume: "sess-1" });
+    const resumed = buildArgs({ prompt: "p", model: "sonnet", maxRunCostUsd: 4, resume: "sess-1" });
     assert.equal(resumed[resumed.indexOf("--resume") + 1], "sess-1");
     assert.ok(!args.includes("--resume"));
-  });
-
-  it("caps a run's spend when given a ceiling, and passes no cap otherwise", () => {
-    const capped = buildArgs({ prompt: "p", model: "sonnet", maxTurns: 1, maxRunCostUsd: 3 });
-    assert.equal(capped[capped.indexOf("--max-budget-usd") + 1], "3");
-    assert.ok(!args.includes("--max-budget-usd"));
   });
 
   it("passes the prompt as one argument, never through a shell", () => {

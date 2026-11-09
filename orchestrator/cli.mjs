@@ -65,8 +65,8 @@ const main = async () => {
         removeWorktree,
       },
       files: reviewFiles,
-      claude: async ({ prompt, cwd, resume, step, model, maxTurns, maxRunCostUsd, timeoutMs }) => {
-        const args = buildArgs({ prompt, model, maxTurns, maxRunCostUsd, resume, settings: settingsFor(step) });
+      claude: async ({ prompt, cwd, resume, step, model, maxRunCostUsd, timeoutMs }) => {
+        const args = buildArgs({ prompt, model, maxRunCostUsd, resume, settings: settingsFor(step) });
         const result = await runClaude({ args, cwd, timeoutMs, env: claudeEnv(identity) });
         if (result.timedOut) throw Object.assign(new Error("Run timed out"), { timedOut: true });
         if (result.resumeFailed) throw Object.assign(new Error("Session could not be resumed"), { code: "RESUME_FAILED" });

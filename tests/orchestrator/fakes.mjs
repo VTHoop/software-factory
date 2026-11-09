@@ -60,7 +60,7 @@ export const makeDeps = (over = {}) => {
       model: "sonnet",
       base: "main",
       repo: "/work/repo",
-      maxTurns: 80,
+      maxRunCostUsd: 4,
       runTimeoutMs: 1_800_000,
       trustedAuthors: ["VTHoop"],
     },

@@ -17,12 +17,16 @@ const required = (config, key) => {
 
 export const loadConfig = (file) => {
   const config = JSON.parse(readFileSync(file, "utf8"));
-  for (const key of ["model", "maxTurns", "runTimeoutMs"]) required(config, key);
+  for (const key of ["model", "runTimeoutMs", "maxRunCostUsd"]) required(config, key);
+  // Left in a config, it would read as a limit that no longer applies.
+  if (config.maxTurns !== undefined) {
+    throw new Error("config: maxTurns is no longer used, so remove it; maxRunCostUsd bounds each run");
+  }
   if (!Array.isArray(config.entries)) throw new Error("config: entries is required");
   // Zero or a string would otherwise mean no cap at all, without a word.
   const cap = config.maxRunCostUsd;
-  if (cap !== undefined && !(typeof cap === "number" && Number.isFinite(cap) && cap > 0)) {
-    throw new Error("config: maxRunCostUsd, if given, must be a number above 0");
+  if (!(typeof cap === "number" && Number.isFinite(cap) && cap > 0)) {
+    throw new Error("config: maxRunCostUsd must be a number above 0");
   }
   config.entries.forEach((entry, i) => {
     if (!entry.repo) throw new Error(`config: entries[${i}].repo is required`);
