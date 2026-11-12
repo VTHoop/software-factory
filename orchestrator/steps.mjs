@@ -102,12 +102,14 @@ export const review = async (ticket, deps) => {
   try {
     // The checkout is the PR's head, which could carry a file at this path.
     await deps.files.remove(file, cwd);
+    // After the first review, one agent checks the response and the commits since it.
+    const rereview = (ticket.reviews ?? 0) >= 1;
     const { judged } = await run(
       ticket,
       deps,
       "review",
-      { prompt: `/software-factory:pr-review ${ticket.pr} --unattended`, cwd },
-      "review",
+      { prompt: `/software-factory:pr-review ${ticket.pr} --unattended${rereview ? " --rereview" : ""}`, cwd },
+      rereview ? "rereview" : "review",
     );
     if (!judged.ok) return fail(ticket, judged);
     const body = await deps.files.read(file, cwd);
