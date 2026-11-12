@@ -113,14 +113,19 @@ Read paths:
 
 Each returns `LGTM` or findings in its prescribed format, followed by its `Files read` lines.
 
-**Check coverage before trusting a report.** Compare the `Read paths:` list in each report: its paths must cover the changed-file list, path by path. A matching total is not enough, because the `Files read: <n> of <m>` numbers are the reviewer's own count. A changed file missing from `Read paths:`, or one the reviewer says it read through the diff or did not open in full, counts as not read. An LGTM without full coverage is a failed reviewer, and so is a report with no `Files read` or `Read paths:` lines. Spawn it once more, naming the files it missed, with the same reviewer prompt. If it is still incomplete, read the files it still missed in full yourself (`git show origin/<head>:<path>`) and review them under that reviewer's lens, adding what you find to that lens's findings. Keep the reviewer's own findings, and name in the summary the lens and the files you covered for it. Only a changed file that neither the reviewer nor you read in full makes the **Overall** line never `Approved`.
+**Check coverage before trusting a report.** Compare the `Read paths:` list in each report: its paths must cover the changed-file list, path by path. A matching total is not enough, because the `Files read: <n> of <m>` numbers are the reviewer's own count. A changed file missing from `Read paths:`, or one the reviewer says it read through the diff or did not open in full, counts as not read. An LGTM without full coverage is a failed reviewer, and so is a report with no `Files read` or `Read paths:` lines. What happens next depends on how much it missed:
+
+- **A reviewer that missed a few files is not spawned again.** Read the files it missed in full yourself (`git show origin/<head>:<path>`) and review them under that reviewer's lens. A new reviewer would start cold and re-read every file to cover a few.
+- **A reviewer that mostly failed is spawned again.** That is a report with no `Read paths:` list, or missed more than half of the changed files or more than five of them. Spawn it once more, naming the files it missed, with the same reviewer prompt. If it is still incomplete, read the files it still missed in full yourself and review them under that reviewer's lens.
+
+Before you review files under a lens, read that reviewer's agent definition, `../../agents/<agent>.md` from this skill's base directory (`<agent>` is the `subagent_type` without its `software-factory:` prefix), so you check what that lens checks. If you can't read it, say so in the summary for that lens, and review the files under the lens as the table above names it. When several reviewers missed the same file, read it once and review it under each of their lenses. Add what you find to that lens's findings, keep the reviewer's own findings, and name in the summary each lens and the files you covered for it. Only a changed file that neither the reviewer nor you read in full makes the **Overall** line never `Approved`.
 
 ## Phase 4: Validate findings (confirm-or-kill)
 
 Before arbitrating, **verify every Blocker and Major finding against the actual diff** — this is the false-positive filter.
 - Re-read the cited code for each Blocker/Major. Ask: is the issue actually present as described, in the changed lines, and not already handled nearby (existing teardown, guard, test, sanitizer, batch)?
 - **Drop** findings that don't hold. **Downgrade** findings you can't confirm to a lower severity marked *"(unverified)"*.
-- For a high-stakes or contested Blocker, you may spawn a single skeptic `Agent` whose job is to *refute* it; keep the finding only if the skeptic can't.
+- For a high-stakes or contested Blocker, you may spawn a single skeptic `Agent` whose job is to *refute* it; keep the finding only if the skeptic can't. Blockers you raised while covering reviewers' files always go to a skeptic, since nobody else has checked them: one skeptic for all of them, not one each.
 - Minors and Recommendations don't need individual validation, but drop any that are clearly wrong on a glance.
 
 ## Phase 5: Arbitrate
@@ -165,7 +170,7 @@ Never skip the requirements reviewer, and never fall back to local-only mode: bo
 
 **Continue** when the PR was already reviewed, or was authored by the current account, without asking.
 
-**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. Spawn each lens at most twice: once, and once more only for the coverage retry in Phase 3. A reviewer that fails to run is a stop, not a smaller review. A reviewer that still has incomplete coverage after its second try is not a stop: read the files it missed yourself, as Phase 3 says. The PR is reviewed once per run: never start a second round of reviewers, and never go back to Phase 1 after Phase 6, even to refine or re-check the comment.
+**Reviewers.** Spawn all six review agents, however small the diff is, and never review inline in their place. Covering the files a reviewer missed, as Phase 3 says, is not reviewing in its place. Spawn each lens at most twice: once, and once more only when Phase 3 calls for a retry. A reviewer that fails to run is a stop, not a smaller review. A reviewer that missed a few files is not a stop, and a reviewer that still has incomplete coverage after its second try is not a stop either: read the files it missed yourself, as Phase 3 says. The PR is reviewed once per run: never start a second round of reviewers, and never go back to Phase 1 after Phase 6, even to refine or re-check the comment.
 
 **Posting.** Post nothing to the PR: no summary comment, no inline comments, no `gh pr comment`, `gh pr review` or `gh api` write. Instead, write the summary comment, in the Output format below, to `.software-factory/review.md` in the checkout (create the directory), once. The script that started the run posts it. Then end with the finished result, whatever the **Overall** line says.
 <!-- unattended:end -->

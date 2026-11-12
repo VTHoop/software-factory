@@ -46,8 +46,33 @@ describe("pr-review checks coverage", () => {
     assert.match(text(), /an LGTM without full coverage is a failed reviewer/i);
   });
 
-  it("gives a failed reviewer one more try, naming the files it missed", () => {
+  it("covers a few missed files itself instead of spawning the reviewer again", () => {
+    assert.match(text(), /missed a few files is not spawned again/i);
+    assert.match(text(), /read the files it missed in full yourself/i);
+  });
+
+  it("spawns again only a reviewer that mostly failed, naming the files it missed", () => {
+    assert.match(text(), /no `Read paths:` list, or missed more than half of the changed files or more than five of them/i);
     assert.match(text(), /spawn it once more, naming the files it missed/i);
+  });
+
+  it("reads the lens's agent definition before covering files under it", () => {
+    assert.match(text(), /read that reviewer's agent definition/i);
+    assert.match(text(), /`\.\.\/\.\.\/agents\/<agent>\.md` from this skill's base directory/);
+    assert.doesNotMatch(text(), /CLAUDE_PLUGIN_ROOT/);
+  });
+
+  it("says so, and still covers the files, when the agent definition can't be read", () => {
+    assert.match(text(), /if you can't read it, say so in the summary for that lens/i);
+  });
+
+  it("reads a file several reviewers missed once, then applies each of their lenses", () => {
+    assert.match(text(), /several reviewers missed the same file, read it once/i);
+  });
+
+  it("puts a Blocker the orchestrator found while covering files before a skeptic", () => {
+    assert.match(text(), /Blockers you raised while covering reviewers' files always go to a skeptic/i);
+    assert.match(text(), /one skeptic for all of them/i);
   });
 
   it("reads the files a reviewer still missed itself, under that reviewer's lens", () => {
@@ -64,5 +89,9 @@ describe("pr-review checks coverage", () => {
     const unattended = block(text(), "unattended");
     assert.doesNotMatch(unattended, /incomplete coverage after its second try, is a stop/i);
     assert.match(unattended, /incomplete coverage after its second try is not a stop/i);
+  });
+
+  it("does not count covering a reviewer's missed files as reviewing in its place", () => {
+    assert.match(block(text(), "unattended"), /covering the files a reviewer missed.*is not reviewing in its place/is);
   });
 });
