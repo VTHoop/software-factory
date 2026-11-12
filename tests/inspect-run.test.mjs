@@ -63,6 +63,12 @@ const result = (extra = {}) => ({
   ...extra,
 });
 const stream = (...events) => events.map((e) => JSON.stringify(e)).join("\n");
+// The tool result a call got back, as stream-json records it.
+const toolReply = (parent, id, content, isError = false) => ({
+  type: "user",
+  parent_tool_use_id: parent,
+  message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] },
+});
 
 const goodRun = () =>
   stream(
@@ -297,16 +303,29 @@ describe("inspectRun: respawned reviewers", () => {
 
 describe("inspectRun: reads inside shell loops, with the changed-file list", () => {
   const CHANGED = ["README.md", "LICENSE", "plugins/x/agents/a.md", "plugins/x/agents/b.md"];
-  const reads = (command, opts = { changed: CHANGED }) => {
+  // By default the call's output came back whole; `{ recorded: false }` leaves its result out.
+  const reads = (command, opts = { changed: CHANGED }, { recorded = true } = {}) => {
+    const bash = call("a0", "Bash", { command });
     const run = stream(
       init,
       spawn("a0", LENSES[0], promptFor(FOCUS[LENSES[0]])),
-      call("a0", "Bash", { command }),
+      bash,
+      ...(recorded ? [toolReply("a0", bash.message.content[0].id, "file contents")] : []),
       result(),
     );
     const [rev] = inspectRun(run, TEMPLATE, opts).reviewers;
     return { opened: rev.opened, partial: rev.partial };
   };
+
+  it("counts a loop with no recorded result as partial, since its output may have come back cut", () => {
+    const r = reads("for f in README.md LICENSE; do git show origin/feature:$f; done", { changed: CHANGED }, { recorded: false });
+    assert.deepEqual(r, { opened: [], partial: ["LICENSE", "README.md"] });
+  });
+
+  it("still counts one git show with no recorded result as full", () => {
+    const r = reads("git show origin/feature:LICENSE", { changed: CHANGED }, { recorded: false });
+    assert.deepEqual(r, { opened: ["LICENSE"], partial: [] });
+  });
 
   it("counts the files named in a loop that shows each one in full", () => {
     const r = reads('cd /work/clone; for f in README.md LICENSE; do echo "=== $f"; git show origin/feature:$f; done');
@@ -382,6 +401,13 @@ describe("inspectRun: reads inside shell loops, with the changed-file list", () 
 });
 
 describe("inspectRun: run health", () => {
+  it("says whether the stream recorded tool results to score reads by", () => {
+    assert.equal(inspectRun(goodRun(), TEMPLATE).toolResults, false);
+    const read = call("a0", "Read", { file_path: "/work/clone/README.md" });
+    const run = stream(init, spawn("a0", LENSES[0], promptFor(FOCUS[LENSES[0]])), read, toolReply("a0", read.message.content[0].id, "     1\tx"), result());
+    assert.equal(inspectRun(run, TEMPLATE).toolResults, true);
+  });
+
   it("reports permission denials from the result", () => {
     const denied = [{ tool_name: "Bash", tool_input: { command: "H=origin/main && git diff" } }];
     const run = stream(init, result({ permission_denials: denied }));
