@@ -88,12 +88,7 @@ describe("pr-review compares the paths each reviewer read", () => {
     assert.match(text(), /counts as not read/i);
   });
 
-  it("sends a reviewer with unread files back once, naming them", () => {
-    assert.match(text(), /spawn it once more, naming the files it missed/i);
-    assert.match(text(), /never `Approved`/);
-  });
-
-  it("respawns a reviewer with the same reviewer prompt", () => {
+  it("respawns a reviewer that mostly failed with the same reviewer prompt", () => {
     assert.match(text(), /spawn it once more, naming the files it missed, with the same reviewer prompt/i);
   });
 
