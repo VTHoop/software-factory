@@ -5,7 +5,7 @@ A Claude Code plugin that takes a refined Linear ticket to a reviewed, addressed
 | Skill | What it does |
 | --- | --- |
 | `/software-factory:start-ticket <key>` | Reads the ticket, branches, and agrees an AC → test plan. Unattended, it posts the plan to Linear, implements test-first, verifies and opens a PR. |
-| `/software-factory:pr-review [pr]` | Runs up to six review agents (all six in an unattended run), validates their findings against the diff, and posts one comment (in an unattended run, the script that started it posts the comment). |
+| `/software-factory:pr-review [pr]` | Runs up to six review agents (all six in an unattended run), validates their findings against the diff, and posts one comment (in an unattended run, the script that started it posts the comment). With `--rereview`, one agent checks the answers to the last review and the commits since it. |
 | `/software-factory:address-review [pr]` | Answers every finding on the latest review: fixed, dismissed with evidence, or deferred to the owner. |
 
 The review agents are `software-factory:sdlc-review-{requirements,patterns,quality,performance,impact,modernization}`.
@@ -18,7 +18,7 @@ In a project, pin the release in `.claude/settings.json`:
 {
   "extraKnownMarketplaces": {
     "software-factory": {
-      "source": { "source": "github", "repo": "VTHoop/software-factory", "ref": "v0.3.2" }
+      "source": { "source": "github", "repo": "VTHoop/software-factory", "ref": "v0.4.0" }
     }
   },
   "enabledPlugins": { "software-factory@software-factory": true }
