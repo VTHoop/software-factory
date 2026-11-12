@@ -14,7 +14,7 @@ const REVIEW_AGENT = /^software-factory:sdlc-review-/;
 const MIN_FOCUS = 30;
 
 export const LIMITS =
-  "Reads are inferred from the reviewers' Read and git show calls in the stream. " +
+  "Reads are inferred from the reviewers' Read and git show calls in the stream, and from what they returned. " +
   "The skill cannot fully verify reads by itself: a reviewer can open a file and still skim it.";
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -65,16 +65,59 @@ const expandLoop = (cmd) => {
   return m[2].trim().split(/\s+/).map((word) => cmd.replace(variable, word));
 };
 
-// What a Read or Bash call opened: [{ path, full }]. A shell loop is read by
+// The Read tool's line cap when a call names no limit.
+const READ_DEFAULT_LIMIT = 2000;
+
+// Each tool result's text, by tool_use id. Streams recorded without results give an empty map.
+const toolResults = (evs) => {
+  const out = new Map();
+  for (const e of evs) {
+    if (e.type !== "user") continue;
+    for (const c of e.message?.content ?? []) {
+      if (c.type !== "tool_result") continue;
+      const text = Array.isArray(c.content) ? c.content.map((p) => p.text ?? "").join("\n") : String(c.content ?? "");
+      out.set(c.tool_use_id, { text, isError: c.is_error === true });
+    }
+  }
+  return out;
+};
+
+// Bash output too large to return is saved to a file, and the call sees only a preview.
+const truncated = (text) => /<persisted-output>|Output too large/.test(text);
+
+// The lines a Read returned: { first, last, end }, where `end` says it reached the end of the file.
+const page = (use, res) => {
+  const numbers = [...res.text.matchAll(/^\s*(\d+)[\t→]/gm)].map((m) => Number(m[1]));
+  const first = numbers[0] ?? use.input.offset ?? 1;
+  return { first, last: numbers.at(-1) ?? first - 1, end: numbers.length < (use.input.limit ?? READ_DEFAULT_LIMIT) };
+};
+
+// Whether a file's pages run from line 1, without a gap, to a page that reached its end.
+const coversFile = (pages) => {
+  let reached = 0;
+  for (const p of [...pages].sort((a, b) => a.first - b.first)) {
+    if (p.first > reached + 1) return false;
+    reached = Math.max(reached, p.last);
+    if (p.end && p.last >= reached) return true;
+  }
+  return false;
+};
+
+// What a Read or Bash call opened: [{ path, full, page? }]. A shell loop is read by
 // matching the changed files against the paths and globs in the command, so
-// it is an inference: the command text is all the stream shows.
-const opened = (use, cwd, changed) => {
+// it is an inference: the command text is all the stream shows. Where the stream
+// has the call's result, a Read counts by the lines it returned and a git show by
+// whether its output came back whole.
+const opened = (use, cwd, changed, res) => {
   if (use.name === "Read") {
     const path = relative(use.input.file_path ?? "", cwd);
+    if (!path || res?.isError) return [];
+    if (res) return [{ path, full: false, page: page(use, res) }];
     const full = use.input.limit === undefined && use.input.offset === undefined;
-    return path ? [{ path, full }] : [];
+    return [{ path, full }];
   }
   if (use.name !== "Bash") return [];
+  if (res && truncated(res.text)) return opened(use, cwd, changed).map((o) => ({ ...o, full: false }));
   const found = new Map();
   for (const cmd of expandLoop(use.input.command ?? "")) {
     if (!SHOW.test(cmd)) continue;
@@ -127,11 +170,21 @@ export function inspectRun(text, template, { changed } = {}) {
     }
   }
 
+  const results = toolResults(evs);
+  const pages = new Map();
   for (const e of evs) {
     const r = byId.get(e.parent_tool_use_id);
     if (e.type !== "assistant" || !r) continue;
     for (const use of toolUses(e)) {
-      for (const o of opened(use, cwd, changed)) (o.full ? r.opened : r.partial).add(o.path);
+      for (const o of opened(use, cwd, changed, results.get(use.id))) {
+        if (o.page) {
+          const key = `${e.parent_tool_use_id}\0${o.path}`;
+          pages.set(key, [...(pages.get(key) ?? []), o.page]);
+          (coversFile(pages.get(key)) ? r.opened : r.partial).add(o.path);
+        } else {
+          (o.full ? r.opened : r.partial).add(o.path);
+        }
+      }
     }
   }
 
