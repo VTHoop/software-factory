@@ -19,9 +19,11 @@ describe("pr-review defines the reviewer prompt", () => {
 
   it("fixes the wording for the changed files and the reading rules", () => {
     assert.match(prompt(), /^Changed files \(<m>\):$/m);
-    assert.match(prompt(), /read every file in the changed-file list in full/i);
-    assert.match(prompt(), /`git show origin\/<head>:<path>`/);
-    assert.match(prompt(), /`--stat`.*keyword grep.*do(es)? not count/is);
+    assert.match(prompt(), /read every file in the changed-file list in full with the Read tool, one call per file/i);
+    assert.match(prompt(), /never put several files in one Bash command/i);
+    assert.match(prompt(), /keep reading it with `offset` until the end/i);
+    assert.match(prompt(), /`--stat`.*`sed -n`.*keyword grep.*do(es)? not count/is);
+    assert.doesNotMatch(prompt(), /git show/);
   });
 
   it("uses the same reading rule as the agents' review-depth block", () => {

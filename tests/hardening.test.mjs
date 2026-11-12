@@ -38,9 +38,17 @@ describe("reviewers diff the remote state", () => {
     });
   }
 
-  it("reads files from the origin head ref", () => {
-    assert.match(block(agent(AGENTS[0]), "review-depth"), /`git show origin\/<head>:<path>`/);
+  it("reads files with the Read tool in the checkout, which is the PR head", () => {
+    assert.match(block(agent(AGENTS[0]), "review-depth"), /with the Read tool/);
+    assert.match(block(agent(AGENTS[0]), "review-depth"), /that checkout is the PR head/i);
   });
+
+  for (const a of AGENTS) {
+    it(`${a} reads the diff with git and the files with the Read tool`, () => {
+      assert.match(agent(a), /read the diff with local `git`.*and the files with the Read tool/i);
+      assert.doesNotMatch(agent(a), /read the diff and files with local `git`/i);
+    });
+  }
 
   it("runs one git command at a time, since unattended runs deny compound ones", () => {
     assert.match(block(agent(AGENTS[0]), "review-depth"), /one git command at a time/i);
