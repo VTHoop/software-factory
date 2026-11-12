@@ -134,7 +134,10 @@ const opened = (use, cwd, changed, res) => {
     }
     for (const [path, full] of here) found.set(path, found.get(path) || full);
   }
-  return [...found].map(([path, full]) => ({ path, full }));
+  // With no result to show the output came back whole, a command that printed several
+  // files may have been cut to a preview, so none of them counts as read in full.
+  const several = found.size > 1 && !res;
+  return [...found].map(([path, full]) => ({ path, full: full && !several }));
 };
 
 export function inspectRun(text, template, { changed } = {}) {
@@ -209,6 +212,8 @@ export function inspectRun(text, template, { changed } = {}) {
     reviewers,
     subagentCount: reviewers.length,
     respawns: reviewers.filter((r) => r.respawn).length,
+    // False for a stream recorded without tool results: reads are then inferred from commands alone.
+    toolResults: results.size > 0,
     denials: result?.permission_denials ?? [],
     limits: LIMITS,
   };
@@ -237,5 +242,8 @@ if (import.meta.main) {
     : undefined;
   const report = inspectRun(readFileSync(file, "utf8"), template, { changed });
   console.log(JSON.stringify(report, null, 2));
+  if (!report.toolResults) {
+    console.error("This stream has no tool results, so reads are inferred from commands alone, and a command that read several files counts as partial.");
+  }
   process.exit(passes(report) ? 0 : 1);
 }
