@@ -76,6 +76,25 @@ describe("judgeRun", () => {
   });
 });
 
+describe("judgeRun for a re-review", () => {
+  const rereview = { ...opts, expect: "rereview" };
+
+  it("passes with no reviewer agents, since one agent does it", () => {
+    assert.deepEqual(judgeRun(output(), rereview), { ok: true });
+  });
+
+  it("passes when it fell back to the full review and all six finished", () => {
+    assert.deepEqual(judgeRun(reviewOutput(), rereview), { ok: true });
+  });
+
+  it("fails when it fell back to the full review and not all six finished", () => {
+    const stats = { spawned: 3, completed: 3, failed: 0, by_type: byType(REVIEWERS.slice(0, 3)) };
+    const r = judgeRun(output({ subagent_stats: stats }), rereview);
+    assert.equal(r.kind, "reviewers");
+    assert.match(r.reason, /3 of 6/);
+  });
+});
+
 describe("judgeRun for a review", () => {
   const review = { ...opts, expect: "review" };
 
