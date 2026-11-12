@@ -187,6 +187,81 @@ describe("inspectRun: files each reviewer opened", () => {
   });
 });
 
+describe("inspectRun: what a read returned", () => {
+  const use = (parent, id, name, input) => ({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: { content: [{ type: "tool_use", id, name, input }] },
+  });
+  const reply = (parent, id, content, isError = false) => ({
+    type: "user",
+    parent_tool_use_id: parent,
+    message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] },
+  });
+  const numbered = (from, count) =>
+    Array.from({ length: count }, (_, i) => `${String(from + i).padStart(6)}\tline ${from + i}`).join("\n");
+  const reads = (...events) => {
+    const run = stream(init, spawn("a0", LENSES[0], promptFor(FOCUS[LENSES[0]])), ...events, result());
+    const [rev] = inspectRun(run, TEMPLATE).reviewers;
+    return { opened: rev.opened, partial: rev.partial };
+  };
+  const FILE = "/work/clone/README.md";
+
+  it("counts a git show whose output came back as a preview as partial", () => {
+    const r = reads(
+      use("a0", "s1", "Bash", { command: "git show origin/feature:README.md" }),
+      reply("a0", "s1", "<persisted-output>\nOutput too large (36.2KB). Full output saved to: /tmp/x.txt\n\nPreview (first 2KB):\n# Title"),
+    );
+    assert.deepEqual(r, { opened: [], partial: ["README.md"] });
+  });
+
+  it("counts a git show that came back whole as full", () => {
+    const r = reads(
+      use("a0", "s1", "Bash", { command: "git show origin/feature:README.md" }),
+      reply("a0", "s1", "# Title\nbody"),
+    );
+    assert.deepEqual(r, { opened: ["README.md"], partial: [] });
+  });
+
+  it("counts a Read that returned fewer lines than its limit as full", () => {
+    const r = reads(use("a0", "r1", "Read", { file_path: FILE }), reply("a0", "r1", numbered(1, 120)));
+    assert.deepEqual(r, { opened: ["README.md"], partial: [] });
+  });
+
+  it("counts a Read cut off at its default 2000 lines as partial", () => {
+    const r = reads(use("a0", "r1", "Read", { file_path: FILE }), reply("a0", "r1", numbered(1, 2000)));
+    assert.deepEqual(r, { opened: [], partial: ["README.md"] });
+  });
+
+  it("counts paged Reads that run from line 1 to the end of the file as full", () => {
+    const r = reads(
+      use("a0", "r1", "Read", { file_path: FILE, limit: 2000 }),
+      reply("a0", "r1", numbered(1, 2000)),
+      use("a0", "r2", "Read", { file_path: FILE, offset: 2001, limit: 2000 }),
+      reply("a0", "r2", numbered(2001, 150)),
+    );
+    assert.deepEqual(r, { opened: ["README.md"], partial: [] });
+  });
+
+  it("counts pages that leave a gap as partial", () => {
+    const r = reads(
+      use("a0", "r1", "Read", { file_path: FILE, limit: 100 }),
+      reply("a0", "r1", numbered(1, 100)),
+      use("a0", "r2", "Read", { file_path: FILE, offset: 300, limit: 100 }),
+      reply("a0", "r2", numbered(300, 40)),
+    );
+    assert.deepEqual(r, { opened: [], partial: ["README.md"] });
+  });
+
+  it("counts a Read that ended in an error as not opened", () => {
+    const r = reads(
+      use("a0", "r1", "Read", { file_path: FILE }),
+      reply("a0", "r1", "File content (31000 tokens) exceeds maximum allowed tokens (25000).", true),
+    );
+    assert.deepEqual(r, { opened: [], partial: [] });
+  });
+});
+
 describe("inspectRun: respawned reviewers", () => {
   const respawnRun = () =>
     stream(
