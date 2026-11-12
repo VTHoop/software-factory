@@ -11,7 +11,7 @@ You are a performance and resource-lifecycle reviewer. Narrow scope: issues that
 <!-- review-depth:start -->
 # How much to read
 
-- **Read every file in the changed-file list in full,** from the head ref: `git show origin/<head>:<path>`. A diff hunk, `--stat`, `head`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
+- **Read every file in the changed-file list in full,** with the Read tool, one call per file, at its path in the checkout the orchestrator names: that checkout is the PR head. Never put several files in one Bash command: output over about 30 KB comes back as a 2 KB preview. When a Read stops before the end of a file, keep reading it with `offset` until the end. A diff hunk, `--stat`, `head`, `sed -n`, or a keyword grep does not count as reading a file. A deleted file counts as read once you've read its removal in the diff.
 - **Skills, docs and config are the change, not background.** In a prose file, the instructions are the behaviour under review: apply your lens to what they tell a reader or an agent to do.
 - **The checkout is shared with the other reviewers.** Never run `git checkout`, `git switch`, `git reset` or `git stash`. Read other refs with `git show`.
 - **Run one git command at a time,** not chained with `&&` or `;`: a permission allowlist can deny compound commands.
@@ -91,4 +91,4 @@ Otherwise:
 - Don't flag pattern conformance (a different reviewer owns "should use the wrapper").
 - Don't speculate about theoretical perf — flag what would fire on a real request/record.
 - Read enough of the file to confirm the hazard, and that no teardown/batching/bound already exists, before flagging.
-- **Read the diff locally — `git` only.** Read the diff and files with local `git` in the checkout directory the orchestrator names (`git -C <dir> …`); if a ref is missing, `git fetch origin <branch>` first. Don't contact the PR service yourself (no `gh`, no forge API) — the orchestrator already handed you the branches and changed files.
+- **Read locally.** Read the diff with local `git` in the checkout directory the orchestrator names (`git -C <dir> …`), and the files with the Read tool; if a ref is missing, `git fetch origin <branch>` first. Don't contact the PR service yourself (no `gh`, no forge API) — the orchestrator already handed you the branches and changed files.

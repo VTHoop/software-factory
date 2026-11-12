@@ -72,7 +72,12 @@ const reviewersMissing = (output) => {
   });
 };
 
-// Whether a finished run counts. `expect: "review"` also requires all six reviewers.
+// Whether a re-review spawned any reviewer, which it does only when it falls back to the full review.
+const spawnedReviewers = (output) =>
+  Object.keys(output.subagent_stats?.by_type ?? {}).some((type) => REVIEWERS.some((name) => type.endsWith(`sdlc-review-${name}`)));
+
+// Whether a finished run counts. `expect: "review"` also requires all six reviewers, and
+// `expect: "rereview"` requires them only if it fell back to the full review.
 export const judgeRun = (output, { maxRunCostUsd, expect }) => {
   if (output.is_error && output.subtype === "error_max_budget_usd") {
     return { ok: false, kind: "budget", reason: `The run reached its $${maxRunCostUsd} spend cap (maxRunCostUsd).` };
@@ -93,7 +98,7 @@ export const judgeRun = (output, { maxRunCostUsd, expect }) => {
   if (result.status === "stopped") {
     return { ok: false, kind: "stopped", reason: `The skill stopped: ${result.reason}` };
   }
-  if (expect === "review") {
+  if (expect === "review" || (expect === "rereview" && spawnedReviewers(output))) {
     const missing = reviewersMissing(output);
     if (missing.length > 0) {
       return {

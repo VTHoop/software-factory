@@ -11,9 +11,11 @@ describe("every reviewer reads what it reviews", () => {
   });
 
   it("reads every changed file in full, and a diff or grep doesn't count", () => {
-    assert.match(rules(), /read every file in the changed-file list in full/i);
-    assert.match(rules(), /`git show origin\/<head>:<path>`/);
-    assert.match(rules(), /`--stat`.*keyword grep.*do(es)? not count/is);
+    assert.match(rules(), /read every file in the changed-file list in full,?\*{0,2} with the Read tool, one call per file/i);
+    assert.match(rules(), /never put several files in one Bash command/i);
+    assert.match(rules(), /keep reading it with `offset` until the end/i);
+    assert.match(rules(), /`--stat`.*`sed -n`.*keyword grep.*do(es)? not count/is);
+    assert.doesNotMatch(rules(), /`git show origin\/<head>:<path>`/);
   });
 
   it("counts prose as seriously as code", () => {
@@ -73,6 +75,22 @@ describe("pr-review checks coverage", () => {
   it("puts a Blocker the orchestrator found while covering files before a skeptic", () => {
     assert.match(text(), /Blockers you raised while covering reviewers' files always go to a skeptic/i);
     assert.match(text(), /one skeptic for all of them/i);
+  });
+
+  it("makes sure the checkout is the PR head before any reviewer reads from it", () => {
+    assert.match(text(), /`git rev-parse HEAD`.*`git rev-parse origin\/<head>`/s);
+    assert.match(text(), /`git status --porcelain`/);
+    assert.match(text(), /`git worktree add --detach <dir> origin\/<head>`/);
+    assert.match(text(), /never switch, reset or stash the user's checkout/i);
+  });
+
+  it("stops an unattended run whose checkout is not the PR head", () => {
+    assert.match(block(text(), "unattended"), /the checkout is not the PR head/i);
+  });
+
+  it("reads missed files with the Read tool, not git show", () => {
+    assert.match(text(), /read the files it missed in full yourself with the Read tool/i);
+    assert.doesNotMatch(text(), /yourself \(`git show/);
   });
 
   it("reads the files a reviewer still missed itself, under that reviewer's lens", () => {

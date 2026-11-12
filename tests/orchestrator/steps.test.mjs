@@ -71,6 +71,19 @@ describe("review", () => {
     assert.notEqual(call.cwd, withPr.worktree);
   });
 
+  it("runs the second review as a single-agent re-review", async () => {
+    const deps = makeDeps({ claude: async (c) => (deps.calls.push(["claude", c]), reviewOutput()) });
+    await review({ ...withPr, phase: "answered", reviews: 1 }, deps);
+    assert.equal(claudeCall(deps).prompt, "/software-factory:pr-review 7 --unattended --rereview");
+  });
+
+  it("judges the second review as a re-review, so it needs no reviewer agents", async () => {
+    const deps = makeDeps({ claude: async () => output({ result: reviewOutput().result }) });
+    const result = await review({ ...withPr, phase: "answered", reviews: 1 }, deps);
+    assert.equal(result.phase, "reviewed");
+    assert.equal(result.reviews, 2);
+  });
+
   it("records the outcome and counts the review", async () => {
     const deps = makeDeps({ claude: async () => reviewOutput() });
     const result = await review(withPr, deps);
