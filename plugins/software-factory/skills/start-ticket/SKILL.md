@@ -86,6 +86,8 @@ Use the Linear MCP server's `get_issue`, `list_comments`, `list_documents`, `get
     - Post the Linear comment `🚀 Starting: <one-line approach>` (`save_comment`).
     - If the issue is in a backlog or unstarted state, move it to the team's _In Progress_ state (`list_issue_statuses`, then `save_issue`).
 14. Begin TDD: the first commit is the failing tests from the approved table.
+    - The failing-test commit passes the repo's commit hooks, like every other commit; never `--no-verify`. Where a hook typechecks or lints, add the smallest stubs the tests need to compile: the new names, types and signatures, with bodies that throw `not implemented` or return nothing useful. No behavior goes in that commit.
+    - Run the tests before committing and check that they fail on an assertion or a stub that throws, not a compile error. A test that fails only because it doesn't compile proves nothing about the behavior.
 
 # Unattended run
 
