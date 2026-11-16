@@ -201,3 +201,17 @@ describe("address-review --unattended", () => {
     assert.match(skill("address-review"), /^## Response to \/pr-review$/m);
   });
 });
+
+describe("start-ticket's failing-test commit", () => {
+  const text = () => skill("start-ticket");
+
+  it("passes the repo's commit hooks, never skipping them", () => {
+    assert.match(text(), /failing-test commit passes the repo's commit hooks/i);
+    assert.match(text(), /never `--no-verify`/i);
+  });
+
+  it("adds only the stubs the tests need to compile, so they fail on an assertion", () => {
+    assert.match(text(), /smallest stubs/i);
+    assert.match(text(), /fail on an assertion or a stub that throws, not a compile error/i);
+  });
+});
