@@ -86,6 +86,8 @@ Use the Linear MCP server's `get_issue`, `list_comments`, `list_documents`, `get
     - Post the Linear comment `🚀 Starting: <one-line approach>` (`save_comment`).
     - If the issue is in a backlog or unstarted state, move it to the team's _In Progress_ state (`list_issue_statuses`, then `save_issue`).
 14. Begin TDD: the first commit is the failing tests from the approved table.
+    - The failing-test commit passes the repo's commit hooks, like every other commit; never `--no-verify`. Where a hook typechecks or lints, add the smallest stubs the tests need to compile: the new names, types and signatures, with bodies that throw `not implemented` or return nothing useful. No behavior goes in that commit.
+    - Run the tests before committing and check that they fail on an assertion or a stub that throws, not a compile error. A test that fails only because it doesn't compile proves nothing about the behavior.
 
 # Unattended run
 
@@ -105,7 +107,7 @@ With `--unattended`, the workflow above runs with these changes. Where they diff
 - there is no AC section, or AC that two engineers would implement differently (the ticket needs refining);
 - `AGENTS.md` has no `## Verification` section.
 
-**Commands.** The run starts in the worktree, so stay there. Never `cd`, never chain commands with `;`, `&&` or `|` when one call each would do, and use paths relative to the worktree. To read or search files, use the Read and Grep tools, not `cat`, `head` or `grep`. The headless permission check refuses compound commands and absolute paths, and a refusal ends the run as escalated.
+**Commands.** The run starts in the worktree, so stay there. Never `cd`, never chain commands with `;`, `&&` or `|` when one call each would do, and use paths relative to the worktree. To read or search files, use the Read and Grep tools, not `cat`, `head` or `grep`. To create or change a file (tests, code, a PR body), use the Write and Edit tools, never `cat >`, a heredoc, `echo >`, `tee` or `sed -i`: the headless permission check refuses a shell write, and appending to a file is an Edit. The headless permission check refuses compound commands and absolute paths, and a refusal ends the run as escalated.
 
 **Something only the owner can provide** stops the run only if the work can't be implemented and verified without it. Otherwise carry on and list it under `### Before testing` in the PR.
 
