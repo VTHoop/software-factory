@@ -48,8 +48,8 @@ describe("pr-review checks coverage", () => {
     assert.match(text(), /an LGTM without full coverage is a failed reviewer/i);
   });
 
-  it("covers a few missed files itself instead of spawning the reviewer again", () => {
-    assert.match(text(), /missed a few files is not spawned again/i);
+  it("covers missed files itself instead of spawning the reviewer again", () => {
+    assert.match(text(), /however many files a reviewer missed, it is not spawned again/i);
     assert.match(text(), /read the files it missed in full yourself/i);
   });
 
