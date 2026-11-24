@@ -18,7 +18,7 @@ In a project, pin the release in `.claude/settings.json`:
 {
   "extraKnownMarketplaces": {
     "software-factory": {
-      "source": { "source": "github", "repo": "VTHoop/software-factory", "ref": "v0.4.2" }
+      "source": { "source": "github", "repo": "VTHoop/software-factory", "ref": "v0.4.3" }
     }
   },
   "enabledPlugins": { "software-factory@software-factory": true }
