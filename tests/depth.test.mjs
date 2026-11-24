@@ -68,7 +68,7 @@ describe("pr-review checks coverage", () => {
   });
 
   it("counts a missed file with a tiny diff as covered by its diff hunk", () => {
-    assert.match(text(), /a missed file whose diff changes five lines or fewer needs no full read/i);
+    assert.match(text(), /a missed file whose diff changes five lines or fewer, added plus removed, needs no full read/i);
     assert.match(text(), /read its diff hunk instead/i);
   });
 
