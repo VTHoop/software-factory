@@ -53,9 +53,20 @@ describe("pr-review checks coverage", () => {
     assert.match(text(), /read the files it missed in full yourself/i);
   });
 
-  it("spawns again only a reviewer that mostly failed, naming the files it missed", () => {
-    assert.match(text(), /no `Read paths:` list, or missed more than half of the changed files or more than five of them/i);
-    assert.match(text(), /spawn it once more, naming the files it missed/i);
+  it("spawns again only a reviewer whose report has no coverage lines", () => {
+    assert.match(text(), /a reviewer whose report has no `Files read` or `Read paths:` lines is spawned again/i);
+    assert.match(text(), /spawn it once more with the same reviewer prompt/i);
+  });
+
+  it("never spawns a reviewer again because of how many files it missed", () => {
+    assert.doesNotMatch(text(), /more than half of the changed files/i);
+    assert.doesNotMatch(text(), /more than five of them/i);
+    assert.match(text(), /however many files a reviewer missed, it is not spawned again/i);
+  });
+
+  it("counts a missed file with a tiny diff as covered by its diff hunk", () => {
+    assert.match(text(), /a missed file whose diff changes five lines or fewer needs no full read/i);
+    assert.match(text(), /read its diff hunk instead/i);
   });
 
   it("reads the lens's agent definition before covering files under it", () => {
