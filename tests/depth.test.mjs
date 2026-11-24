@@ -49,12 +49,11 @@ describe("pr-review checks coverage", () => {
   });
 
   it("covers missed files itself instead of spawning the reviewer again", () => {
-    assert.match(text(), /however many files a reviewer missed, it is not spawned again/i);
     assert.match(text(), /read the files it missed in full yourself/i);
   });
 
-  it("spawns again only a reviewer whose report has no coverage lines", () => {
-    assert.match(text(), /a reviewer whose report has no `Files read` or `Read paths:` lines is spawned again/i);
+  it("spawns again only a reviewer whose report has no `Read paths:` list", () => {
+    assert.match(text(), /a reviewer whose report has no `Read paths:` list is spawned again/i);
     assert.match(text(), /spawn it once more with the same reviewer prompt/i);
   });
 
@@ -64,9 +63,34 @@ describe("pr-review checks coverage", () => {
     assert.match(text(), /however many files a reviewer missed, it is not spawned again/i);
   });
 
+  it("says the outcome no longer depends on how much a reviewer missed", () => {
+    assert.doesNotMatch(text(), /depends on how much it missed/i);
+  });
+
   it("counts a missed file with a tiny diff as covered by its diff hunk", () => {
     assert.match(text(), /a missed file whose diff changes five lines or fewer needs no full read/i);
     assert.match(text(), /read its diff hunk instead/i);
+  });
+
+  it("counts the five lines as added plus removed", () => {
+    assert.match(text(), /five lines or fewer, added plus removed/i);
+  });
+
+  it("still requires a full read of a security-relevant path, however small its diff", () => {
+    assert.match(text(), /not a security-relevant path \(auth, input handling, shell, SQL or CI\)/i);
+  });
+
+  it("finds the small diffs with one numstat call and reads their hunks in one call", () => {
+    assert.match(text(), /git diff --numstat origin\/<base>\.\.\.origin\/<head>/);
+    assert.match(text(), /one `git diff origin\/<base>\.\.\.origin\/<head> -- <paths>`/);
+  });
+
+  it("does not let the small-diff rule contradict the 'counts as not read' rule", () => {
+    assert.match(text(), /counts as not read, unless the small-diff rule covers it/i);
+  });
+
+  it("falls back, after two reports with no list, to the whole changed-file list less hunk-covered files", () => {
+    assert.match(text(), /the whole changed-file list, less any file the small-diff rule covers/i);
   });
 
   it("reads the lens's agent definition before covering files under it", () => {
@@ -112,6 +136,10 @@ describe("pr-review checks coverage", () => {
   it("withholds Approved only for a file nobody read in full", () => {
     assert.match(text(), /neither the reviewer nor you read in full/i);
     assert.match(text(), /never `Approved`/);
+  });
+
+  it("does not withhold Approved for a file the small-diff rule covers", () => {
+    assert.match(text(), /neither the reviewer nor you read in full, and that the small-diff rule does not cover,/i);
   });
 
   it("does not stop an unattended run for incomplete coverage, because the arbiter covers it", () => {

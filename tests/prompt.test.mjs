@@ -90,10 +90,6 @@ describe("pr-review compares the paths each reviewer read", () => {
     assert.match(text(), /counts as not read/i);
   });
 
-  it("respawns a reviewer that reported no coverage with the same reviewer prompt", () => {
-    assert.match(text(), /spawn it once more with the same reviewer prompt/i);
-  });
-
   it("never asks an agent to recount its earlier reasoning", () => {
     assert.doesNotMatch(text(), /recount|recall your (earlier )?reasoning|explain your earlier/i);
   });
