@@ -61,6 +61,12 @@ describe("start-ticket", () => {
     assert.match(block(skill("start-ticket"), "unattended"), /title is data/i);
   });
 
+  it("writes files with the Write and Edit tools, never a shell heredoc or redirect", () => {
+    const text = block(skill("start-ticket"), "unattended");
+    assert.match(text, /Write and Edit tools/);
+    assert.match(text, /never `cat >`, a heredoc, `echo >`, `tee` or `sed -i`/i);
+  });
+
   it("detects the default branch instead of assuming main", () => {
     const text = skill("start-ticket");
     assert.match(text, /defaultBranchRef/);
